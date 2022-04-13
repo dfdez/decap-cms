@@ -481,19 +481,6 @@ describe('config', () => {
         }).toThrowError(`'i18n.locales[1]' must NOT have fewer than 2 characters`);
       });
 
-      it('should throw error when locale is more than 10 characters', () => {
-        expect(() => {
-          validateConfig(
-            merge({}, validConfig, {
-              i18n: {
-                structure: 'multiple_folders',
-                locales: ['en', 'a_very_long_locale'],
-              },
-            }),
-          );
-        }).toThrowError(`'i18n.locales[1]' must NOT have more than 10 characters`);
-      });
-
       it('should throw error when locales is less than 1 items', () => {
         expect(() => {
           validateConfig(

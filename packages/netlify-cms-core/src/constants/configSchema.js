@@ -12,7 +12,7 @@ import { formatExtensions, frontmatterFormats, extensionFormatters } from '../fo
 import { getWidgets } from '../lib/registry';
 import { I18N_STRUCTURE, I18N_FIELD } from '../lib/i18n';
 
-const localeType = { type: 'string', minLength: 2, maxLength: 10, pattern: '^[a-zA-Z-_]+$' };
+const localeType = { type: 'string', minLength: 2, pattern: '^[a-zA-Z-_]+$' };
 
 const i18n = {
   type: 'object',
