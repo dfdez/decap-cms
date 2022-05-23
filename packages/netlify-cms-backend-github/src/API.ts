@@ -53,6 +53,7 @@ export interface Config {
   branch?: string;
   useOpenAuthoring?: boolean;
   repo?: string;
+  requestFunction?: (req: ApiRequest) => Promise<Response>;
   originRepo?: string;
   squashMerges: boolean;
   initialWorkflowStatus: string;
@@ -181,6 +182,7 @@ export default class API {
   repoName: string;
   originRepoOwner: string;
   originRepoName: string;
+  requestFunction: (req: ApiRequest) => Promise<Response>;
   repoURL: string;
   originRepoURL: string;
   mergeMethod: string;
@@ -200,6 +202,7 @@ export default class API {
     this.repo = config.repo || '';
     this.originRepo = config.originRepo || this.repo;
     this.repoURL = `/repos/${this.repo}`;
+    this.requestFunction = config.requestFunction || unsentRequest.performRequest
     // when not in 'useOpenAuthoring' mode originRepoURL === repoURL
     this.originRepoURL = `/repos/${this.originRepo}`;
 
