@@ -84,6 +84,7 @@ export function removeMediaControl(id: string) {
 export function openMediaLibrary(
   payload: {
     controlID?: string;
+    fileExtensions?: string[];
     forImage?: boolean;
     privateUpload?: boolean;
     value?: string;
@@ -237,7 +238,7 @@ function resizeImage(image: HTMLImageElement, { name, type, width, height }: { n
 }
 
 export function persistMedia(file: File, opts: MediaOptions = {}) {
-  const { privateUpload, field } = opts;
+  const { privateUpload, field, forImage } = opts;
   return async (dispatch: ThunkDispatch<State, {}, AnyAction>, getState: () => State) => {
     const state = getState();
     const backend = currentBackend(state.config);
@@ -280,21 +281,22 @@ export function persistMedia(file: File, opts: MediaOptions = {}) {
       const collection = state.collections.get(entry?.get('collection'));
 
       if (existingFile) {
-        const { displayURL } = existingFile;
-        const existingFileDisplayUrl = typeof displayURL === 'string' ? displayURL : displayURL && await backend.getMediaDisplayURL(displayURL);
+        if (forImage) {
+          const { displayURL } = existingFile;
+          const existingFileDisplayUrl = typeof displayURL === 'string' ? displayURL : displayURL && await backend.getMediaDisplayURL(displayURL);
 
-        const existingImage = await loadImage(existingFileDisplayUrl as string);
-        const fileImage = await loadImage(URL.createObjectURL(file));
+          const existingImage = await loadImage(existingFileDisplayUrl as string);
+          const fileImage = await loadImage(URL.createObjectURL(file));
 
-        const { height: currentHeight, width: currentWidth } = existingImage;
-        const { height, width } = fileImage;
-        if (currentHeight !== height || currentWidth !== width) {
-          if (!window.confirm(`${existingFile.name} must have a height of ${currentHeight} and a width of ${currentWidth}. Do you want to resize it?`)) {
-            return;
+          const { height: currentHeight, width: currentWidth } = existingImage;
+          const { height, width } = fileImage;
+          if (currentHeight !== height || currentWidth !== width) {
+            if (!window.confirm(`${existingFile.name} must have a height of ${currentHeight} and a width of ${currentWidth}. Do you want to resize it?`)) {
+              return;
+            }
+            file = await resizeImage(fileImage, { name: file.name, type: file.type, height: currentHeight, width: currentWidth });
           }
-          file = await resizeImage(fileImage, { name: file.name, type: file.type, height: currentHeight, width: currentWidth });
         }
-
         await dispatch(removeDraftEntryMediaFile({ id: existingFile.id }));
       }
 
@@ -440,6 +442,7 @@ export function loadMediaDisplayURL(file: MediaFile) {
 
 function mediaLibraryOpened(payload: {
   controlID?: string;
+  fileExtensions?: string[];
   forImage?: boolean;
   privateUpload?: boolean;
   value?: string;
@@ -473,6 +476,8 @@ interface MediaOptions {
   canPaginate?: boolean;
   dynamicSearch?: boolean;
   dynamicSearchQuery?: string;
+  fileExtensions?: string[];
+  forImage?: boolean;
 }
 
 export function mediaLoaded(files: ImplementationMediaFile[], opts: MediaOptions = {}) {

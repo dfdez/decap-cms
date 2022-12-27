@@ -32,6 +32,7 @@ function MediaLibraryTop({
   t,
   onClose,
   privateUpload,
+  fileExtensions,
   forImage,
   value,
   onDownload,
@@ -48,10 +49,12 @@ function MediaLibraryTop({
   isDeleting,
   selectedFile,
 }) {
-  const isNewOrReplacement = !value || selectedFile.draft && selectedFile.name === basename(value);
+  const isNewOrReplacement = !value || (!selectedFile.draft || selectedFile.name === basename(value));
   const shouldShowButtonLoader = isPersisting || isDeleting;
   const uploadEnabled = !shouldShowButtonLoader;
   const chooseEnabled = hasSelection && isNewOrReplacement;
+
+  const acceptFiles = fileExtensions && fileExtensions.map(extension => `.${extension}`).join();
 
   const uploadButtonLabel = isPersisting
     ? t('mediaLibrary.mediaLibraryModal.uploading')
@@ -68,8 +71,8 @@ function MediaLibraryTop({
         <MediaLibraryHeader
           onClose={onClose}
           title={`${privateUpload ? t('mediaLibrary.mediaLibraryModal.private') : ''}${forImage
-              ? t('mediaLibrary.mediaLibraryModal.images')
-              : t('mediaLibrary.mediaLibraryModal.mediaAssets')
+            ? t('mediaLibrary.mediaLibraryModal.images')
+            : t('mediaLibrary.mediaLibraryModal.mediaAssets')
             }`}
           isPrivate={privateUpload}
         />
@@ -85,12 +88,13 @@ function MediaLibraryTop({
             {downloadButtonLabel}
           </DownloadButton>
           {!canInsert ? null : (
-              <UploadButton
-            label={uploadButtonLabel}
-            imagesOnly={forImage}
-            onChange={onUpload}
-            disabled={!uploadEnabled}
-          />
+            <UploadButton
+              label={uploadButtonLabel}
+              acceptFiles={acceptFiles}
+              imagesOnly={forImage}
+              onChange={onUpload}
+              disabled={!uploadEnabled}
+            />
           )}
         </ButtonsContainer>
       </RowContainer>
@@ -121,6 +125,7 @@ MediaLibraryTop.propTypes = {
   t: PropTypes.func.isRequired,
   onClose: PropTypes.func.isRequired,
   privateUpload: PropTypes.bool,
+  fileExtensions: PropTypes.arrayOf(PropTypes.string),
   forImage: PropTypes.bool,
   value: PropTypes.string,
   onDownload: PropTypes.func.isRequired,

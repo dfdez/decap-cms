@@ -67,6 +67,7 @@ function MediaLibraryModal({
   files,
   dynamicSearch,
   dynamicSearchActive,
+  fileExtensions,
   forImage,
   value,
   isLoading,
@@ -78,6 +79,7 @@ function MediaLibraryModal({
   query,
   selectedFile,
   handleFilter,
+  handleImageFilter,
   handleQuery,
   toTableData,
   handleClose,
@@ -94,7 +96,7 @@ function MediaLibraryModal({
   displayURLs,
   t,
 }) {
-  const filteredFiles = forImage ? handleFilter(files) : files;
+  const filteredFiles = fileExtensions ? handleFilter(files, fileExtensions) : (forImage ? handleImageFilter(files) : files);
   const queriedFiles = !dynamicSearch && query ? handleQuery(query, filteredFiles) : filteredFiles;
   const tableData = toTableData(queriedFiles);
   const hasFiles = files && !!files.length;
@@ -117,6 +119,7 @@ function MediaLibraryModal({
         t={t}
         onClose={handleClose}
         privateUpload={privateUpload}
+        fileExtensions={fileExtensions}
         forImage={forImage}
         value={value}
         onDownload={handleDownload}
@@ -173,6 +176,7 @@ MediaLibraryModal.propTypes = {
   files: PropTypes.arrayOf(PropTypes.shape(fileShape)).isRequired,
   dynamicSearch: PropTypes.bool,
   dynamicSearchActive: PropTypes.bool,
+  fileExtensions: PropTypes.arrayOf(PropTypes.string),
   forImage: PropTypes.bool,
   value: PropTypes.string,
   isLoading: PropTypes.bool,
@@ -184,6 +188,7 @@ MediaLibraryModal.propTypes = {
   query: PropTypes.string,
   selectedFile: PropTypes.oneOfType([PropTypes.shape(fileShape), PropTypes.shape({})]),
   handleFilter: PropTypes.func.isRequired,
+  handleImageFilter: PropTypes.func.isRequired,
   handleQuery: PropTypes.func.isRequired,
   toTableData: PropTypes.func.isRequired,
   handleClose: PropTypes.func.isRequired,

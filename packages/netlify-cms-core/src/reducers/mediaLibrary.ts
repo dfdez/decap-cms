@@ -64,13 +64,14 @@ function mediaLibrary(state = Map(defaultState), action: MediaLibraryAction) {
       });
 
     case MEDIA_LIBRARY_OPEN: {
-      const { controlID, forImage, privateUpload, config, field, value, replaceIndex } =
+      const { controlID, fileExtensions, forImage, privateUpload, config, field, value, replaceIndex } =
         action.payload;
       const libConfig = config || Map();
       const privateUploadChanged = state.get('privateUpload') !== privateUpload;
       if (privateUploadChanged) {
         return Map({
           isVisible: true,
+          fileExtensions,
           forImage,
           controlID,
           canInsert: !!controlID,
@@ -85,6 +86,7 @@ function mediaLibrary(state = Map(defaultState), action: MediaLibraryAction) {
       }
       return state.withMutations(map => {
         map.set('isVisible', true);
+        map.set('fileExtensions', fileExtensions);
         map.set('forImage', forImage);
         map.set('controlID', controlID);
         map.set('canInsert', !!controlID);

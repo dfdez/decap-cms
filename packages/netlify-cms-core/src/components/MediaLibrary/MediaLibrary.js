@@ -44,6 +44,7 @@ class MediaLibrary extends React.Component {
     files: PropTypes.arrayOf(PropTypes.shape(fileShape)).isRequired,
     dynamicSearch: PropTypes.bool,
     dynamicSearchActive: PropTypes.bool,
+    fileExtensions: PropTypes.arrayOf(PropTypes.string),
     forImage: PropTypes.bool,
     value: PropTypes.string,
     isLoading: PropTypes.bool,
@@ -109,9 +110,16 @@ class MediaLibrary extends React.Component {
    * Filter an array of file data to include only images.
    */
   filterImages = files => {
+    return this.filterFiles(files, IMAGE_EXTENSIONS);
+  };
+
+  /**
+   * Filter an array of file data to include only extensions specified.
+   */
+  filterFiles = (files, extensions) => {
     return files.filter(file => {
       const ext = fileExtension(file.name).toLowerCase();
-      return IMAGE_EXTENSIONS.includes(ext);
+      return extensions.includes(ext);
     });
   };
 
@@ -179,40 +187,55 @@ class MediaLibrary extends React.Component {
     event.persist();
     event.stopPropagation();
     event.preventDefault();
-    const { persistMedia, privateUpload, config, t, field, value } = this.props;
+    const { persistMedia, privateUpload, config, t, field, value, fileExtensions, forImage } = this.props;
     const { files: fileList } = event.dataTransfer || event.target;
     const files = [...fileList];
     let file = files[0];
 
-    const fileNamePattern = field.get('file_name_pattern');
-    if (fileNamePattern && !(new RegExp(fileNamePattern).test(file.name))) {
-      window.alert(`The name of the file must be with this pattern:\n\n${fileNamePattern.split('\\')[0]}\n\nPlease rename the file with a correct file name in order to continue.`);
-      return;
+    if (fileExtensions && !fileExtensions.find(extension => new RegExp(`.*${extension}$`).test(file.name))) {
+      return window.alert(
+        t('mediaLibrary.mediaLibrary.fileNamePatternError', {
+          pattern: fileExtensions.join(),
+        }),
+      );
     }
 
-    const fileName = value && basename(value);
-    if (fileName && fileName !== file.name) {
-      if (!window.confirm(`The name of the file must be ${fileName}.\n\nDo you want to make the name replacement?`)) {
-        return;
-      }
-      file = this.renameFile(file, fileName);
+    const fileNamePattern = field.get('file_name_pattern');
+    if (fileNamePattern && !(new RegExp(fileNamePattern).test(file.name))) {
+      return window.alert(
+        t('mediaLibrary.mediaLibrary.fileNamePatternError', {
+          pattern: fileNamePattern.split('\\')[0],
+        }),
+      );
     }
 
     const maxFileSize = config.get('max_file_size');
-
     if (maxFileSize && file.size > maxFileSize) {
-      window.alert(
+      return window.alert(
         t('mediaLibrary.mediaLibrary.fileTooLarge', {
           size: Math.floor(maxFileSize / 1000),
         }),
       );
-    } else {
-      await persistMedia(file, { privateUpload, field });
-
-      this.setState({ selectedFile: this.props.files[0] });
-
-      this.scrollToTop();
     }
+
+    if (forImage) {
+      const fileName = value && basename(value);
+      if (fileName && fileName !== file.name) {
+        if (!window.confirm(
+          t('mediaLibrary.mediaLibrary.fileNameCheckReplacement', {
+            fileName,
+          }),)) {
+          return;
+        }
+        file = this.renameFile(file, fileName);
+      }
+    }
+
+    await persistMedia(file, { privateUpload, field, forImage });
+
+    this.setState({ selectedFile: this.props.files[0] });
+
+    this.scrollToTop();
 
     event.target.value = null;
   };
@@ -330,6 +353,7 @@ class MediaLibrary extends React.Component {
       files,
       dynamicSearch,
       dynamicSearchActive,
+      fileExtensions,
       forImage,
       value,
       isLoading,
@@ -349,6 +373,7 @@ class MediaLibrary extends React.Component {
         files={files}
         dynamicSearch={dynamicSearch}
         dynamicSearchActive={dynamicSearchActive}
+        fileExtensions={fileExtensions}
         forImage={forImage}
         value={value}
         isLoading={isLoading}
@@ -359,7 +384,8 @@ class MediaLibrary extends React.Component {
         privateUpload={privateUpload}
         query={this.state.query}
         selectedFile={this.state.selectedFile}
-        handleFilter={this.filterImages}
+        handleFilter={this.filterFiles}
+        handleImageFilter={this.filterImages}
         handleQuery={this.queryFilter}
         toTableData={this.toTableData}
         handleClose={this.handleClose}
@@ -391,6 +417,7 @@ function mapStateToProps(state) {
     dynamicSearch: mediaLibrary.get('dynamicSearch'),
     dynamicSearchActive: mediaLibrary.get('dynamicSearchActive'),
     dynamicSearchQuery: mediaLibrary.get('dynamicSearchQuery'),
+    fileExtensions: mediaLibrary.get('fileExtensions'),
     forImage: mediaLibrary.get('forImage'),
     value: mediaLibrary.get('value'),
     isLoading: mediaLibrary.get('isLoading'),
