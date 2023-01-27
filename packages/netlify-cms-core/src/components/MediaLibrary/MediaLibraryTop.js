@@ -32,7 +32,6 @@ function MediaLibraryTop({
   t,
   onClose,
   privateUpload,
-  fileExtensions,
   forImage,
   value,
   onDownload,
@@ -48,6 +47,7 @@ function MediaLibraryTop({
   isPersisting,
   isDeleting,
   selectedFile,
+  fileExtensions,
 }) {
   const isNewOrReplacement = !value || (!selectedFile.draft || selectedFile.name === basename(value));
   const shouldShowButtonLoader = isPersisting || isDeleting;
@@ -125,7 +125,6 @@ MediaLibraryTop.propTypes = {
   t: PropTypes.func.isRequired,
   onClose: PropTypes.func.isRequired,
   privateUpload: PropTypes.bool,
-  fileExtensions: PropTypes.arrayOf(PropTypes.string),
   forImage: PropTypes.bool,
   value: PropTypes.string,
   onDownload: PropTypes.func.isRequired,
@@ -148,6 +147,7 @@ MediaLibraryTop.propTypes = {
     }),
     PropTypes.shape({}),
   ]),
+  fileExtensions: PropTypes.arrayOf(PropTypes.string),
 };
 
 export default MediaLibraryTop;

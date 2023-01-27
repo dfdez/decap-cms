@@ -24,6 +24,7 @@ import type {
   MediaLibraryInstance,
   EntryField,
   EntryMap,
+  CmsMediaValidation,
 } from '../types/redux';
 import type { AnyAction } from 'redux';
 import type { ThunkDispatch } from 'redux-thunk';
@@ -35,6 +36,7 @@ const { notifSend } = notifActions;
 export const MEDIA_LIBRARY_OPEN = 'MEDIA_LIBRARY_OPEN';
 export const MEDIA_LIBRARY_CLOSE = 'MEDIA_LIBRARY_CLOSE';
 export const MEDIA_LIBRARY_CREATE = 'MEDIA_LIBRARY_CREATE';
+export const MEDIA_LIBRARY_VALIDATION = 'MEDIA_LIBRARY_VALIDATION';
 export const MEDIA_INSERT = 'MEDIA_INSERT';
 export const MEDIA_REMOVE_INSERTED = 'MEDIA_REMOVE_INSERTED';
 export const MEDIA_LOAD_REQUEST = 'MEDIA_LOAD_REQUEST';
@@ -61,6 +63,10 @@ export function createMediaLibrary(instance: MediaLibraryInstance) {
   return { type: MEDIA_LIBRARY_CREATE, payload: api } as const;
 }
 
+export function createMediaLibraryValidation(validation: CmsMediaValidation) {
+  return { type: MEDIA_LIBRARY_VALIDATION, payload: validation } as const;
+}
+
 export function clearMediaControl(id: string) {
   return (_dispatch: ThunkDispatch<State, {}, AnyAction>, getState: () => State) => {
     const state = getState();
@@ -84,12 +90,12 @@ export function removeMediaControl(id: string) {
 export function openMediaLibrary(
   payload: {
     controlID?: string;
-    fileExtensions?: string[];
     forImage?: boolean;
     privateUpload?: boolean;
     value?: string;
     allowMultiple?: boolean;
     config?: Map<string, unknown>;
+    validation?: Map<string, unknown>;
     field?: EntryField;
   } = {},
 ) {
@@ -214,7 +220,7 @@ function createMediaFileFromAsset({
   return mediaFile;
 }
 
-function loadImage(src: string): Promise<HTMLImageElement> {
+export function loadImage(src: string): Promise<HTMLImageElement> {
   return new Promise((resolve, reject) => {
     const img = new Image();
     img.onload = () => resolve(img);
@@ -227,13 +233,13 @@ function gcd(width: number, height: number): number {
   return (height == 0) ? width : gcd(height, width % height);
 }
 
-function getAspectRatio(width: number, height: number): string {
+export function getAspectRatio(width: number, height: number): string {
   const gcdValue = gcd(width, height);
   return `${width / gcdValue}:${height / gcdValue}`
 }
 
 export function persistMedia(file: File, opts: MediaOptions = {}) {
-  const { privateUpload, field, forImage } = opts;
+  const { forImage, privateUpload, field, validation } = opts;
   return async (dispatch: ThunkDispatch<State, {}, AnyAction>, getState: () => State) => {
     const state = getState();
     const backend = currentBackend(state.config);
@@ -275,18 +281,25 @@ export function persistMedia(file: File, opts: MediaOptions = {}) {
       const entry = state.entryDraft.get('entry');
       const collection = state.collections.get(entry?.get('collection'));
 
+      const mediaValidation = validation && validation.toJS();
+
+      const imageValidation = forImage && mediaValidation?.images;
+
+      const fileImage = await loadImage(URL.createObjectURL(file));
+
       if (existingFile) {
-        if (forImage) {
+        const { keep_aspect_ratio: keepAspectRatio, } = imageValidation || {};
+
+        if (forImage && keepAspectRatio) {
           const { displayURL } = existingFile;
           const existingFileDisplayUrl = typeof displayURL === 'string' ? displayURL : displayURL && await backend.getMediaDisplayURL(displayURL);
 
           const existingImage = await loadImage(existingFileDisplayUrl as string);
-          const fileImage = await loadImage(URL.createObjectURL(file));
 
-          const currentAspectRatio = getAspectRatio(existingImage.height, existingImage.width);
-          const aspectRatio = getAspectRatio(fileImage.height, fileImage.width);
-          if (currentAspectRatio !== aspectRatio) {
-            return window.alert(`${existingFile.name} must have an aspect ratio of ${currentAspectRatio}.`);
+          const currentAspectRatio = getAspectRatio(existingImage.width, existingImage.height);
+          const aspectRatioToValid = getAspectRatio(fileImage.width, fileImage.height);
+          if (currentAspectRatio !== aspectRatioToValid) {
+            return window.alert(`${file.name} must have an aspect ratio of ${currentAspectRatio}.`);
           }
         }
         await dispatch(removeDraftEntryMediaFile({ id: existingFile.id }));
@@ -434,13 +447,13 @@ export function loadMediaDisplayURL(file: MediaFile) {
 
 function mediaLibraryOpened(payload: {
   controlID?: string;
-  fileExtensions?: string[];
   forImage?: boolean;
   privateUpload?: boolean;
   value?: string;
   replaceIndex?: number;
   allowMultiple?: boolean;
   config?: Map<string, unknown>;
+  validation?: Map<string, unknown>;
   field?: EntryField;
 }) {
   return { type: MEDIA_LIBRARY_OPEN, payload } as const;
@@ -468,8 +481,8 @@ interface MediaOptions {
   canPaginate?: boolean;
   dynamicSearch?: boolean;
   dynamicSearchQuery?: string;
-  fileExtensions?: string[];
   forImage?: boolean;
+  validation?: Map<string, unknown>;
 }
 
 export function mediaLoaded(files: ImplementationMediaFile[], opts: MediaOptions = {}) {
@@ -584,6 +597,7 @@ export async function getMediaDisplayURL(
 
 export type MediaLibraryAction = ReturnType<
   | typeof createMediaLibrary
+  | typeof createMediaLibraryValidation
   | typeof mediaLibraryOpened
   | typeof mediaLibraryClosed
   | typeof mediaInserted

@@ -119,7 +119,6 @@ function MediaLibraryModal({
         t={t}
         onClose={handleClose}
         privateUpload={privateUpload}
-        fileExtensions={fileExtensions}
         forImage={forImage}
         value={value}
         onDownload={handleDownload}
@@ -135,6 +134,7 @@ function MediaLibraryModal({
         isPersisting={isPersisting}
         isDeleting={isDeleting}
         selectedFile={selectedFile}
+        fileExtensions={fileExtensions}
       />
       {!shouldShowEmptyMessage ? null : (
         <EmptyMessage content={emptyMessage} isPrivate={privateUpload} />
@@ -176,7 +176,6 @@ MediaLibraryModal.propTypes = {
   files: PropTypes.arrayOf(PropTypes.shape(fileShape)).isRequired,
   dynamicSearch: PropTypes.bool,
   dynamicSearchActive: PropTypes.bool,
-  fileExtensions: PropTypes.arrayOf(PropTypes.string),
   forImage: PropTypes.bool,
   value: PropTypes.string,
   isLoading: PropTypes.bool,
@@ -201,8 +200,9 @@ MediaLibraryModal.propTypes = {
   handleAssetClick: PropTypes.func.isRequired,
   handleLoadMore: PropTypes.func.isRequired,
   loadDisplayURL: PropTypes.func.isRequired,
-  t: PropTypes.func.isRequired,
   displayURLs: PropTypes.instanceOf(Map).isRequired,
+  fileExtensions: PropTypes.arrayOf(PropTypes.string),
+  t: PropTypes.func.isRequired,
 };
 
 export default translate()(MediaLibraryModal);

@@ -14,6 +14,8 @@ import {
   insertMedia as insertMediaAction,
   loadMediaDisplayURL as loadMediaDisplayURLAction,
   closeMediaLibrary as closeMediaLibraryAction,
+  loadImage,
+  getAspectRatio,
 } from '../../actions/mediaLibrary';
 import { selectMediaFiles } from '../../reducers/mediaLibrary';
 import MediaLibraryModal, { fileShape } from './MediaLibraryModal';
@@ -44,9 +46,9 @@ class MediaLibrary extends React.Component {
     files: PropTypes.arrayOf(PropTypes.shape(fileShape)).isRequired,
     dynamicSearch: PropTypes.bool,
     dynamicSearchActive: PropTypes.bool,
-    fileExtensions: PropTypes.arrayOf(PropTypes.string),
     forImage: PropTypes.bool,
     value: PropTypes.string,
+    validation: ImmutablePropTypes.map,
     isLoading: PropTypes.bool,
     isPersisting: PropTypes.bool,
     isDeleting: PropTypes.bool,
@@ -187,7 +189,7 @@ class MediaLibrary extends React.Component {
     event.persist();
     event.stopPropagation();
     event.preventDefault();
-    const { persistMedia, privateUpload, config, t, field, value, fileExtensions, forImage } = this.props;
+    const { forImage, persistMedia, privateUpload, t, fileExtensions, field, validation, value, } = this.props;
     const { files: fileList } = event.dataTransfer || event.target;
     const files = [...fileList];
     let file = files[0];
@@ -200,7 +202,7 @@ class MediaLibrary extends React.Component {
       );
     }
 
-    const fileNamePattern = field.get('file_name_pattern');
+    const fileNamePattern = validation.get('file_name_pattern');
     if (fileNamePattern && !(new RegExp(fileNamePattern).test(file.name))) {
       return window.alert(
         t('mediaLibrary.mediaLibrary.fileNamePatternError', {
@@ -209,7 +211,7 @@ class MediaLibrary extends React.Component {
       );
     }
 
-    const keepFileName = field.get('keep_file_name') || true;
+    const keepFileName = validation.get('keep_file_name');
     if (value && keepFileName) {
       const valueName = basename(value);
       const valueExtension = fileExtension(value);
@@ -231,7 +233,7 @@ class MediaLibrary extends React.Component {
       }
     }
 
-    const maxFileSize = config.get('max_file_size');
+    const maxFileSize = validation.get('max_file_size');
     if (maxFileSize && file.size > maxFileSize) {
       return window.alert(
         t('mediaLibrary.mediaLibrary.fileTooLarge', {
@@ -240,13 +242,53 @@ class MediaLibrary extends React.Component {
       );
     }
 
-    await persistMedia(file, { privateUpload, field, forImage });
+    const imageValidation = forImage && validation.get('images').toJS();
+    if (imageValidation) {
+      const {
+        aspect_ratio: aspectRatio,
+        max_width: maxWidth,
+        max_height: maxHeight,
+        min_width: minWidth,
+        min_height: minHeight,
+      } = imageValidation;
 
-    this.setState({ selectedFile: this.props.files[0] });
+      const fileImage = await loadImage(URL.createObjectURL(file));
 
-    this.scrollToTop();
+      if (aspectRatio) {
+        const aspectRatioToValid = getAspectRatio(fileImage.width, fileImage.height);
 
-    event.target.value = null;
+        if (aspectRatio !== aspectRatioToValid) {
+          return window.alert(`${file.name} must have an aspect ratio of ${aspectRatio}.`);
+        }
+      }
+
+      if (maxWidth && fileImage.width > maxWidth) {
+        return window.alert(`${file.name} must have a max width of ${maxWidth}.`)
+      }
+
+      if (maxHeight && fileImage.height > maxHeight) {
+        return window.alert(`${file.name} must have a max height of ${maxHeight}.`)
+      }
+
+      if (minWidth && fileImage.width < minWidth) {
+        return window.alert(`${file.name} must have a min width of ${minWidth}.`)
+      }
+
+      if (minHeight && fileImage.height < minHeight) {
+        return window.alert(`${file.name} must have a min height of ${minHeight}.`)
+      }
+    }
+
+    await persistMedia(file, { forImage, privateUpload, field, validation });
+
+    const selectedFile = this.props.files[0];
+    if (selectedFile) {
+      this.setState({ selectedFile });
+
+      this.scrollToTop();
+
+      event.target.value = null;
+    }
   };
 
   /**
@@ -362,7 +404,6 @@ class MediaLibrary extends React.Component {
       files,
       dynamicSearch,
       dynamicSearchActive,
-      fileExtensions,
       forImage,
       value,
       isLoading,
@@ -372,6 +413,7 @@ class MediaLibrary extends React.Component {
       isPaginating,
       privateUpload,
       displayURLs,
+      fileExtensions,
       t,
     } = this.props;
 
@@ -382,7 +424,6 @@ class MediaLibrary extends React.Component {
         files={files}
         dynamicSearch={dynamicSearch}
         dynamicSearchActive={dynamicSearchActive}
-        fileExtensions={fileExtensions}
         forImage={forImage}
         value={value}
         isLoading={isLoading}
@@ -409,6 +450,7 @@ class MediaLibrary extends React.Component {
         handleLoadMore={this.handleLoadMore}
         displayURLs={displayURLs}
         loadDisplayURL={this.loadDisplayURL}
+        fileExtensions={fileExtensions}
         t={t}
       />
     );
@@ -418,6 +460,7 @@ class MediaLibrary extends React.Component {
 function mapStateToProps(state) {
   const { mediaLibrary } = state;
   const field = mediaLibrary.get('field');
+  const validation = mediaLibrary.get('validation');
   const mediaLibraryProps = {
     isVisible: mediaLibrary.get('isVisible'),
     canInsert: mediaLibrary.get('canInsert'),
@@ -426,8 +469,6 @@ function mapStateToProps(state) {
     dynamicSearch: mediaLibrary.get('dynamicSearch'),
     dynamicSearchActive: mediaLibrary.get('dynamicSearchActive'),
     dynamicSearchQuery: mediaLibrary.get('dynamicSearchQuery'),
-    fileExtensions: mediaLibrary.get('fileExtensions'),
-    keepFileName: mediaLibrary.get('keepFileName'),
     forImage: mediaLibrary.get('forImage'),
     value: mediaLibrary.get('value'),
     isLoading: mediaLibrary.get('isLoading'),
@@ -438,7 +479,9 @@ function mapStateToProps(state) {
     page: mediaLibrary.get('page'),
     hasNextPage: mediaLibrary.get('hasNextPage'),
     isPaginating: mediaLibrary.get('isPaginating'),
+    fileExtensions: validation.get('file_extensions'),
     field,
+    validation,
   };
   return { ...mediaLibraryProps };
 }

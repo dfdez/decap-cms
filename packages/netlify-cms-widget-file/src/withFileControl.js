@@ -232,15 +232,16 @@ export default function withFileControl({ forImage } = {}) {
       const { field, onOpenMediaLibrary, value } = this.props;
       e.preventDefault();
       const mediaLibraryFieldOptions = this.getMediaLibraryFieldOptions();
+      const validation = this.getMediaLibraryValidationOptions();
 
       return onOpenMediaLibrary({
         controlID: this.controlID,
-        fileExtensions: field.get('file_extensions'),
         forImage,
         privateUpload: field.get('private'),
         value: valueListToArray(value),
         allowMultiple: !!mediaLibraryFieldOptions.get('allow_multiple', true),
         config: mediaLibraryFieldOptions.get('config'),
+        validation,
         field,
       });
     };
@@ -280,6 +281,12 @@ export default function withFileControl({ forImage } = {}) {
         config: mediaLibraryFieldOptions.get('config'),
         field,
       });
+    };
+
+    getMediaLibraryValidationOptions = () => {
+      const { field } = this.props;
+
+      return field.get('media_validation', Map());
     };
 
     getMediaLibraryFieldOptions = () => {
