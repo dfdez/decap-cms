@@ -209,6 +209,28 @@ class MediaLibrary extends React.Component {
       );
     }
 
+    const keepFileName = field.get('keep_file_name') || true;
+    if (value && keepFileName) {
+      const valueName = basename(value);
+      const valueExtension = fileExtension(value);
+      if (valueName !== file.name) {
+        if (valueExtension === fileExtension(file.name)) {
+          if (!window.confirm(
+            t('mediaLibrary.mediaLibrary.fileNameCheckReplacement', {
+              fileName: valueName,
+            }),)) {
+            return;
+          }
+          file = this.renameFile(file, valueName);
+        } else {
+          return window.alert(
+            t('mediaLibrary.mediaLibrary.fileNamePatternError', {
+              pattern: valueName,
+            }),)
+        }
+      }
+    }
+
     const maxFileSize = config.get('max_file_size');
     if (maxFileSize && file.size > maxFileSize) {
       return window.alert(
@@ -216,19 +238,6 @@ class MediaLibrary extends React.Component {
           size: Math.floor(maxFileSize / 1000),
         }),
       );
-    }
-
-    if (forImage) {
-      const fileName = value && basename(value);
-      if (fileName && fileName !== file.name) {
-        if (!window.confirm(
-          t('mediaLibrary.mediaLibrary.fileNameCheckReplacement', {
-            fileName,
-          }),)) {
-          return;
-        }
-        file = this.renameFile(file, fileName);
-      }
     }
 
     await persistMedia(file, { privateUpload, field, forImage });
@@ -418,6 +427,7 @@ function mapStateToProps(state) {
     dynamicSearchActive: mediaLibrary.get('dynamicSearchActive'),
     dynamicSearchQuery: mediaLibrary.get('dynamicSearchQuery'),
     fileExtensions: mediaLibrary.get('fileExtensions'),
+    keepFileName: mediaLibrary.get('keepFileName'),
     forImage: mediaLibrary.get('forImage'),
     value: mediaLibrary.get('value'),
     isLoading: mediaLibrary.get('isLoading'),

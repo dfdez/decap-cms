@@ -223,18 +223,13 @@ function loadImage(src: string): Promise<HTMLImageElement> {
   });
 }
 
-function resizeImage(image: HTMLImageElement, { name, type, width, height }: { name: string, type: string, width: number, height: number }): Promise<File> {
-  const canvas = document.createElement("canvas");
-  const context = canvas.getContext("2d");
+function gcd(width: number, height: number): number {
+  return (height == 0) ? width : gcd(height, width % height);
+}
 
-  canvas.width = width;
-  canvas.height = height;
-
-  if (context) context.drawImage(image as CanvasImageSource, 0, 0, width, height);
-
-  return new Promise(resolve => {
-    canvas.toBlob((blob) => resolve(new File([blob as Blob], name, { type })), type);
-  });
+function getAspectRatio(width: number, height: number): string {
+  const gcdValue = gcd(width, height);
+  return `${width / gcdValue}:${height / gcdValue}`
 }
 
 export function persistMedia(file: File, opts: MediaOptions = {}) {
@@ -288,13 +283,10 @@ export function persistMedia(file: File, opts: MediaOptions = {}) {
           const existingImage = await loadImage(existingFileDisplayUrl as string);
           const fileImage = await loadImage(URL.createObjectURL(file));
 
-          const { height: currentHeight, width: currentWidth } = existingImage;
-          const { height, width } = fileImage;
-          if (currentHeight !== height || currentWidth !== width) {
-            if (!window.confirm(`${existingFile.name} must have a height of ${currentHeight} and a width of ${currentWidth}. Do you want to resize it?`)) {
-              return;
-            }
-            file = await resizeImage(fileImage, { name: file.name, type: file.type, height: currentHeight, width: currentWidth });
+          const currentAspectRatio = getAspectRatio(existingImage.height, existingImage.width);
+          const aspectRatio = getAspectRatio(fileImage.height, fileImage.width);
+          if (currentAspectRatio !== aspectRatio) {
+            return window.alert(`${existingFile.name} must have an aspect ratio of ${currentAspectRatio}.`);
           }
         }
         await dispatch(removeDraftEntryMediaFile({ id: existingFile.id }));
