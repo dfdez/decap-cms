@@ -14,8 +14,6 @@ import {
   insertMedia as insertMediaAction,
   loadMediaDisplayURL as loadMediaDisplayURLAction,
   closeMediaLibrary as closeMediaLibraryAction,
-  loadImage,
-  getAspectRatio,
 } from '../../actions/mediaLibrary';
 import { selectMediaFiles } from '../../reducers/mediaLibrary';
 import MediaLibraryModal, { fileShape } from './MediaLibraryModal';
@@ -158,17 +156,22 @@ class MediaLibrary extends React.Component {
     return orderBy(tableData, fieldNames, directions);
   };
 
-  handleClose = () => {
-    this.props.closeMediaLibrary();
-  };
+  loadImage = (src) => {
+    return new Promise((resolve, reject) => {
+      const img = new Image();
+      img.onload = () => resolve(img);
+      img.onerror = reject;
+      img.src = src;
+    });
+  }
 
-  /**
-   * Toggle asset selection on click.
-   */
-  handleAssetClick = asset => {
-    const selectedFile = this.state.selectedFile.key === asset.key ? {} : asset;
-    this.setState({ selectedFile });
-  };
+  getAspectRatio = (width, height) => {
+    function gcd(width, height) {
+      return (height == 0) ? width : gcd(height, width % height);
+    }
+    const gcdValue = gcd(width, height);
+    return `${width / gcdValue}:${height / gcdValue}`
+  }
 
   renameFile = (originalFile, newName) => {
     return new File([originalFile], newName, {
@@ -177,23 +180,26 @@ class MediaLibrary extends React.Component {
     });
   }
 
-  /**
-   * Upload a file.
-   */
-  handlePersist = async event => {
-    /**
-     * Stop the browser from automatically handling the file input click, and
-     * get the file for upload, and retain the synthetic event for access after
-     * the asynchronous persist operation.
-     */
-    event.persist();
-    event.stopPropagation();
-    event.preventDefault();
-    const { forImage, persistMedia, privateUpload, t, fileExtensions, field, validation, value, } = this.props;
-    const { files: fileList } = event.dataTransfer || event.target;
-    const files = [...fileList];
-    let file = files[0];
+  getDisplayURL = (file) => {
+    if (!file) return
 
+    const { displayURL } = file;
+
+    if (typeof displayURL === 'string') return displayURL;
+    const isFile = file instanceof File;
+    if (isFile) return URL.createObjectURL(file);
+
+    const { displayURLs } = this.props;
+    const loadedDisplayURLs = displayURLs.toJS();
+    return loadedDisplayURLs[displayURL.id]?.url;
+  }
+
+  validateFile = async (file) => {
+    const { files: currentFiles, forImage, t, validation, value, } = this.props;
+
+    if (!validation) return file;
+
+    const fileExtensions = validation.get('file_extensions')?.toJS();
     if (fileExtensions && !fileExtensions.find(extension => new RegExp(`.*${extension}$`).test(file.name))) {
       return window.alert(
         t('mediaLibrary.mediaLibrary.fileNamePatternError', {
@@ -206,59 +212,54 @@ class MediaLibrary extends React.Component {
     if (fileNamePattern && !(new RegExp(fileNamePattern).test(file.name))) {
       return window.alert(
         t('mediaLibrary.mediaLibrary.fileNamePatternError', {
-          pattern: fileNamePattern.split('\\')[0],
+          pattern: fileNamePattern,
         }),
       );
-    }
-
-    const keepFileName = validation.get('keep_file_name');
-    if (value && keepFileName) {
-      const valueName = basename(value);
-      const valueExtension = fileExtension(value);
-      if (valueName !== file.name) {
-        if (valueExtension === fileExtension(file.name)) {
-          if (!window.confirm(
-            t('mediaLibrary.mediaLibrary.fileNameCheckReplacement', {
-              fileName: valueName,
-            }),)) {
-            return;
-          }
-          file = this.renameFile(file, valueName);
-        } else {
-          return window.alert(
-            t('mediaLibrary.mediaLibrary.fileNamePatternError', {
-              pattern: valueName,
-            }),)
-        }
-      }
     }
 
     const maxFileSize = validation.get('max_file_size');
-    if (maxFileSize && file.size > maxFileSize) {
+    if (maxFileSize && file.size > maxFileSize * 100) {
       return window.alert(
         t('mediaLibrary.mediaLibrary.fileTooLarge', {
-          size: Math.floor(maxFileSize / 1000),
+          size: Math.floor(maxFileSize),
         }),
       );
     }
 
-    const imageValidation = forImage && validation.get('images').toJS();
+    const imageValidation = forImage && validation.get('images')?.toJS();
     if (imageValidation) {
       const {
         aspect_ratio: aspectRatio,
+        keep_aspect_ratio: keepAspectRatio,
         max_width: maxWidth,
         max_height: maxHeight,
         min_width: minWidth,
         min_height: minHeight,
       } = imageValidation;
 
-      const fileImage = await loadImage(URL.createObjectURL(file));
+
+      const displayURL = this.getDisplayURL(file);
+      const fileImage = await this.loadImage(displayURL);
 
       if (aspectRatio) {
-        const aspectRatioToValid = getAspectRatio(fileImage.width, fileImage.height);
+        const aspectRatioToValid = this.getAspectRatio(fileImage.width, fileImage.height);
 
         if (aspectRatio !== aspectRatioToValid) {
           return window.alert(`${file.name} must have an aspect ratio of ${aspectRatio}.`);
+        }
+      }
+
+      if (keepAspectRatio) {
+        const currentFile = currentFiles && currentFiles.find(findFile => findFile.name === file.name);
+        if (currentFile) {
+          const displayURL = this.getDisplayURL(currentFile);
+          const existingImage = await this.loadImage(displayURL);
+
+          const currentAspectRatio = this.getAspectRatio(existingImage.width, existingImage.height);
+          const aspectRatioToValid = this.getAspectRatio(fileImage.width, fileImage.height);
+          if (currentAspectRatio !== aspectRatioToValid) {
+            return window.alert(`${file.name} must have an aspect ratio of ${currentAspectRatio}.`);
+          }
         }
       }
 
@@ -278,6 +279,68 @@ class MediaLibrary extends React.Component {
         return window.alert(`${file.name} must have a min height of ${minHeight}.`)
       }
     }
+
+    const keepFileName = validation.get('keep_file_name');
+    if (keepFileName && value) {
+      const valueName = basename(value);
+      const valueExtension = fileExtension(value);
+      if (valueName !== file.name) {
+        const isFile = file instanceof File;
+        if (isFile && valueExtension === fileExtension(file.name)) {
+          if (!window.confirm(
+            t('mediaLibrary.mediaLibrary.fileNameCheckReplacement', {
+              fileName: valueName,
+            }),)) {
+            return;
+          }
+          return this.renameFile(file, valueName);
+        } else {
+          return window.alert(
+            t('mediaLibrary.mediaLibrary.fileNamePatternError', {
+              pattern: valueName,
+            }),)
+        }
+      }
+    }
+
+    return file;
+  }
+
+  handleClose = () => {
+    this.props.closeMediaLibrary();
+  };
+  /**
+   * Toggle asset selection on click.
+   */
+  handleAssetClick = async asset => {
+    // console.log(this.state.selectedFile)
+    const isSameFile = this.state.selectedFile.key === asset.key;
+    const selectedFile = isSameFile ? {} : asset;
+    if (!isSameFile) {
+      const file = await this.validateFile(selectedFile);
+      if (!file) return;
+    }
+    this.setState({ selectedFile });
+  };
+
+  /**
+   * Upload a file.
+   */
+  handlePersist = async event => {
+    /**
+     * Stop the browser from automatically handling the file input click, and
+     * get the file for upload, and retain the synthetic event for access after
+     * the asynchronous persist operation.
+     */
+    event.persist();
+    event.stopPropagation();
+    event.preventDefault();
+    const { forImage, persistMedia, privateUpload, field, validation, } = this.props;
+    const { files: fileList } = event.dataTransfer || event.target;
+    const files = [...fileList];
+    const file = await this.validateFile(files[0]);
+
+    if (!file) return;
 
     await persistMedia(file, { forImage, privateUpload, field, validation });
 
@@ -406,6 +469,7 @@ class MediaLibrary extends React.Component {
       dynamicSearchActive,
       forImage,
       value,
+      validation,
       isLoading,
       isPersisting,
       isDeleting,
@@ -413,7 +477,6 @@ class MediaLibrary extends React.Component {
       isPaginating,
       privateUpload,
       displayURLs,
-      fileExtensions,
       t,
     } = this.props;
 
@@ -426,6 +489,7 @@ class MediaLibrary extends React.Component {
         dynamicSearchActive={dynamicSearchActive}
         forImage={forImage}
         value={value}
+        validation={validation}
         isLoading={isLoading}
         isPersisting={isPersisting}
         isDeleting={isDeleting}
@@ -450,7 +514,6 @@ class MediaLibrary extends React.Component {
         handleLoadMore={this.handleLoadMore}
         displayURLs={displayURLs}
         loadDisplayURL={this.loadDisplayURL}
-        fileExtensions={fileExtensions}
         t={t}
       />
     );
@@ -471,6 +534,7 @@ function mapStateToProps(state) {
     dynamicSearchQuery: mediaLibrary.get('dynamicSearchQuery'),
     forImage: mediaLibrary.get('forImage'),
     value: mediaLibrary.get('value'),
+    validation,
     isLoading: mediaLibrary.get('isLoading'),
     isPersisting: mediaLibrary.get('isPersisting'),
     isDeleting: mediaLibrary.get('isDeleting'),
@@ -479,9 +543,7 @@ function mapStateToProps(state) {
     page: mediaLibrary.get('page'),
     hasNextPage: mediaLibrary.get('hasNextPage'),
     isPaginating: mediaLibrary.get('isPaginating'),
-    fileExtensions: validation.get('file_extensions'),
     field,
-    validation,
   };
   return { ...mediaLibraryProps };
 }

@@ -281,27 +281,7 @@ export function persistMedia(file: File, opts: MediaOptions = {}) {
       const entry = state.entryDraft.get('entry');
       const collection = state.collections.get(entry?.get('collection'));
 
-      const mediaValidation = validation && validation.toJS();
-
-      const imageValidation = forImage && mediaValidation?.images;
-
-      const fileImage = await loadImage(URL.createObjectURL(file));
-
       if (existingFile) {
-        const { keep_aspect_ratio: keepAspectRatio, } = imageValidation || {};
-
-        if (forImage && keepAspectRatio) {
-          const { displayURL } = existingFile;
-          const existingFileDisplayUrl = typeof displayURL === 'string' ? displayURL : displayURL && await backend.getMediaDisplayURL(displayURL);
-
-          const existingImage = await loadImage(existingFileDisplayUrl as string);
-
-          const currentAspectRatio = getAspectRatio(existingImage.width, existingImage.height);
-          const aspectRatioToValid = getAspectRatio(fileImage.width, fileImage.height);
-          if (currentAspectRatio !== aspectRatioToValid) {
-            return window.alert(`${file.name} must have an aspect ratio of ${currentAspectRatio}.`);
-          }
-        }
         await dispatch(removeDraftEntryMediaFile({ id: existingFile.id }));
       }
 

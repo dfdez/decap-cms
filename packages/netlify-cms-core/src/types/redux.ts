@@ -442,7 +442,7 @@ export interface CmsMediaValidation {
   keep_file_name: boolean
   max_file_size: number
   file_name_pattern: string
-  image?: CmsMediaImageValidation;
+  images?: CmsMediaImageValidation;
 }
 
 export type SlugConfig = StaticallyTypedRecord<{

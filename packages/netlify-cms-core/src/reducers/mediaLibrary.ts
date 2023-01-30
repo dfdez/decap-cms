@@ -68,7 +68,13 @@ function mediaLibrary(state = Map(defaultState), action: MediaLibraryAction) {
 
     case MEDIA_LIBRARY_VALIDATION:
       return state.withMutations(map => {
-        map.set('validation', Map(action.payload));
+        const { payload } = action;
+        const { images = {} } = action.payload;
+
+        map.set('validation', Map({
+          ...payload,
+          images: Map(images)
+        }));
       });
 
     case MEDIA_LIBRARY_OPEN: {

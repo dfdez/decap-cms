@@ -18,7 +18,7 @@ export function FileUploadButton({ label, acceptFiles, imagesOnly, onChange, dis
 FileUploadButton.propTypes = {
   className: PropTypes.string,
   label: PropTypes.string.isRequired,
-  acceptFiles: PropTypes.string.isRequired,
+  acceptFiles: PropTypes.string,
   imagesOnly: PropTypes.bool,
   onChange: PropTypes.func.isRequired,
   disabled: PropTypes.bool,

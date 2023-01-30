@@ -1,7 +1,6 @@
 import React from 'react';
 import PropTypes from 'prop-types';
 import styled from '@emotion/styled';
-import { basename } from 'netlify-cms-lib-util';
 
 import MediaLibrarySearch from './MediaLibrarySearch';
 import MediaLibraryHeader from './MediaLibraryHeader';
@@ -33,7 +32,6 @@ function MediaLibraryTop({
   onClose,
   privateUpload,
   forImage,
-  value,
   onDownload,
   onUpload,
   query,
@@ -49,10 +47,8 @@ function MediaLibraryTop({
   selectedFile,
   fileExtensions,
 }) {
-  const isNewOrReplacement = !value || (!selectedFile.draft || selectedFile.name === basename(value));
   const shouldShowButtonLoader = isPersisting || isDeleting;
   const uploadEnabled = !shouldShowButtonLoader;
-  const chooseEnabled = hasSelection && isNewOrReplacement;
 
   const acceptFiles = fileExtensions && fileExtensions.map(extension => `.${extension}`).join();
 
@@ -111,7 +107,7 @@ function MediaLibraryTop({
             {deleteButtonLabel}
           </DeleteButton> */}
           {!canInsert ? null : (
-            <InsertButton onClick={onInsert} disabled={!chooseEnabled}>
+            <InsertButton onClick={onInsert} disabled={!hasSelection}>
               {insertButtonLabel}
             </InsertButton>
           )}
