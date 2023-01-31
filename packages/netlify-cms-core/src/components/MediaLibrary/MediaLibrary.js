@@ -250,7 +250,8 @@ class MediaLibrary extends React.Component {
       }
 
       if (keepAspectRatio) {
-        const currentFile = currentFiles && currentFiles.find(findFile => findFile.name === file.name);
+        const valueName = basename(value);
+        const currentFile = currentFiles && currentFiles.find(findFile => findFile.name === valueName);
         if (currentFile) {
           const displayURL = this.getDisplayURL(currentFile);
           const existingImage = await this.loadImage(displayURL);
