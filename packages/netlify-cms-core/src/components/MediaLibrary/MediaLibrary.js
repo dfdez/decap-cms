@@ -259,7 +259,11 @@ class MediaLibrary extends React.Component {
           const currentAspectRatio = this.getAspectRatio(existingImage.width, existingImage.height);
           const aspectRatioToValid = this.getAspectRatio(fileImage.width, fileImage.height);
           if (currentAspectRatio !== aspectRatioToValid) {
-            return window.alert(`${file.name} must have an aspect ratio of ${currentAspectRatio}.`);
+            if (!window.confirm(
+              `${file.name} should have an aspect ratio of ${currentAspectRatio}. The current aspect ratio is ${aspectRatioToValid}. Do you want to continue?`
+            )) {
+              return;
+            }
           }
         }
       }
@@ -283,19 +287,20 @@ class MediaLibrary extends React.Component {
 
     const keepFileName = validation.get('keep_file_name');
     if (keepFileName && value) {
-      const valueName = basename(value);
-      const valueExtension = fileExtension(value);
-      if (valueName !== file.name) {
-        const isFile = file instanceof File;
-        if (isFile && valueExtension === fileExtension(file.name)) {
-          if (!window.confirm(
-            t('mediaLibrary.mediaLibrary.fileNameCheckReplacement', {
-              fileName: valueName,
-            }),)) {
-            return;
+      const isFile = file instanceof File;
+      if (isFile) {
+        const valueName = basename(value);
+        const valueExtension = fileExtension(value);
+        if (valueName !== file.name) {
+          if (valueExtension === fileExtension(file.name)) {
+            if (!window.confirm(
+              t('mediaLibrary.mediaLibrary.fileNameCheckReplacement', {
+                fileName: valueName,
+              }),)) {
+              return;
+            }
+            return this.renameFile(file, valueName);
           }
-          return this.renameFile(file, valueName);
-        } else {
           return window.alert(
             t('mediaLibrary.mediaLibrary.fileNamePatternError', {
               pattern: valueName,
