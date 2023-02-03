@@ -173,6 +173,11 @@ class MediaLibrary extends React.Component {
     return `${width / gcdValue}:${height / gcdValue}`
   }
 
+  getRoundAspectRatio = (width, height) => {
+    const ratio = width / height;
+    return Math.round(ratio * 10) / 10;
+  }
+
   renameFile = (originalFile, newName) => {
     return new File([originalFile], newName, {
       type: originalFile.type,
@@ -256,11 +261,13 @@ class MediaLibrary extends React.Component {
           const displayURL = this.getDisplayURL(currentFile);
           const existingImage = await this.loadImage(displayURL);
 
-          const currentAspectRatio = this.getAspectRatio(existingImage.width, existingImage.height);
-          const aspectRatioToValid = this.getAspectRatio(fileImage.width, fileImage.height);
-          if (currentAspectRatio !== aspectRatioToValid) {
+          const currentRoundAspectRatio = this.getRoundAspectRatio(existingImage.width, existingImage.height);
+          const fileRoundAspectRatio = this.getRoundAspectRatio(fileImage.width, fileImage.height);
+          if (currentRoundAspectRatio !== fileRoundAspectRatio) {
+            const currentAspectRatio = this.getAspectRatio(existingImage.width, existingImage.height);
+            const fileAspectRatio = this.getAspectRatio(fileImage.width, fileImage.height);
             if (!window.confirm(
-              `${file.name} should have an aspect ratio of ${currentAspectRatio}. The current aspect ratio is ${aspectRatioToValid}. Do you want to continue?`
+              `${file.name} should have an aspect ratio of ${currentAspectRatio} but the image has an aspect ratio of ${fileAspectRatio}. Do you want to continue?`
             )) {
               return;
             }

@@ -220,26 +220,8 @@ function createMediaFileFromAsset({
   return mediaFile;
 }
 
-export function loadImage(src: string): Promise<HTMLImageElement> {
-  return new Promise((resolve, reject) => {
-    const img = new Image();
-    img.onload = () => resolve(img);
-    img.onerror = reject;
-    img.src = src;
-  });
-}
-
-function gcd(width: number, height: number): number {
-  return (height == 0) ? width : gcd(height, width % height);
-}
-
-export function getAspectRatio(width: number, height: number): string {
-  const gcdValue = gcd(width, height);
-  return `${width / gcdValue}:${height / gcdValue}`
-}
-
 export function persistMedia(file: File, opts: MediaOptions = {}) {
-  const { forImage, privateUpload, field, validation } = opts;
+  const { privateUpload, field, } = opts;
   return async (dispatch: ThunkDispatch<State, {}, AnyAction>, getState: () => State) => {
     const state = getState();
     const backend = currentBackend(state.config);
