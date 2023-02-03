@@ -248,7 +248,7 @@ export function addFileTemplateFields(entryPath: string, fields: Map<string, str
     map.set('filename', filename);
     map.set('extension', extension === '' ? extension : extension.slice(1));
     map.set('route', route);
-    map.set('lang', lang === "all" ? '' : lang);
+    map.set('lang', lang);
   });
 
   return fields;
