@@ -78,6 +78,7 @@ export default class GitHub implements Implementation {
   openAuthoringEnabled: boolean;
   useOpenAuthoring?: boolean;
   alwaysForkEnabled: boolean;
+  main?: string;
   branch: string;
   apiRoot: string;
   mediaFolder: string;
@@ -129,6 +130,7 @@ export default class GitHub implements Implementation {
       this.repo = this.originRepo = config.backend.repo || '';
     }
     this.alwaysForkEnabled = config.backend.always_fork || false;
+    this.main = config.backend.main?.trim() || 'master'
     this.branch = config.backend.branch?.trim() || 'master';
     this.apiRoot = config.backend.api_root || 'https://api.github.com';
     this.token = '';
@@ -732,6 +734,36 @@ export default class GitHub implements Implementation {
       this.lock,
       () => this.api!.publishUnpublishedEntry(collection, slug),
       'Failed to acquire publish entry lock',
+    );
+  }
+
+  async mainStatus() {
+    const pullRequest = await this.api!.fetchMain();
+    return pullRequest
+  }
+
+  updateMainStatus(newStatus: string) {
+    // updateMainStatus is a transactional operation
+    return runWithLock(
+      this.lock,
+      () => this.api!.updateMainStatus(newStatus),
+      'Failed to acquire main update status lock',
+    );
+  }
+
+  async publishMain() {
+    return runWithLock(
+      this.lock,
+      () => this.api!.publishMain(),
+      'Failed to publish main status lock',
+    );
+  }
+
+  async closeMain() {
+    return runWithLock(
+      this.lock,
+      () => this.api!.closeMain(),
+      'Failed to close main status lock',
     );
   }
 }

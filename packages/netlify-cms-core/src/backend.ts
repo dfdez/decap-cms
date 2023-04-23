@@ -1318,6 +1318,22 @@ export class Backend {
       return fieldValue === filterRule.get('value');
     });
   }
+
+  async mainStatus() {
+    return this.implementation.mainStatus!();
+  }
+
+  updateMainStatus(newStatus: string) {
+    return this.implementation.updateMainStatus(newStatus);
+  }
+
+  publishMain() {
+    return this.implementation.publishMain();
+  }
+
+  closeMain() {
+    return this.implementation.closeMain!();
+  }
 }
 
 export function resolveBackend(config: CmsConfig) {

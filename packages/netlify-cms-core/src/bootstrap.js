@@ -9,6 +9,7 @@ import { store } from './redux';
 import { history } from './routing/history';
 import { loadConfig } from './actions/config';
 import { authenticateUser } from './actions/auth';
+import { checkMainStatus } from './actions/main';
 import { getPhrases } from './lib/phrases';
 import { selectLocale } from './reducers/config';
 import { ErrorBoundary } from './components/UI';
@@ -76,6 +77,7 @@ function bootstrap(opts = {}) {
   store.dispatch(
     loadConfig(config, function onLoad() {
       store.dispatch(authenticateUser());
+      store.dispatch(checkMainStatus());
     }),
   );
 
