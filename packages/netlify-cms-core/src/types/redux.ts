@@ -4,6 +4,7 @@ import type { Map, List, OrderedMap, Set } from 'immutable';
 import type { FILES, FOLDER } from '../constants/collectionTypes';
 import type { MediaFile as BackendMediaFile } from '../backend';
 import type { Auth } from '../reducers/auth';
+import type { MainStatus } from '../reducers/main';
 import type { Status } from '../reducers/status';
 import type { Medias } from '../reducers/medias';
 import type { Deploys } from '../reducers/deploys';
@@ -717,6 +718,7 @@ export interface State {
   mediaLibrary: MediaLibrary;
   search: Search;
   notifs: { message: { key: string }; kind: string; id: number }[];
+  main: MainStatus;
   status: Status;
 }
 

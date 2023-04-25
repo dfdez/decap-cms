@@ -172,8 +172,7 @@ class App extends React.Component {
     }
 
     const defaultPath = getDefaultPath(collections);
-    const hasWorkflow = false;
-    // const hasWorkflow = publishMode === EDITORIAL_WORKFLOW;
+    const hasWorkflow = publishMode === EDITORIAL_WORKFLOW;
 
     return (
       <>

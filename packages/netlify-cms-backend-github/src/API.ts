@@ -32,7 +32,7 @@ import type {
   PersistOptions,
   FetchError,
   ApiRequest,
-  GoogleCredentials
+  GoogleCredentials,
 } from 'netlify-cms-lib-util';
 import type { Semaphore } from 'semaphore';
 import type { Octokit } from '@octokit/rest';
@@ -52,6 +52,7 @@ export interface Config {
   apiRoot?: string;
   token?: string;
   googleAuth?: GoogleCredentials;
+  main?: string;
   branch?: string;
   useOpenAuthoring?: boolean;
   repo?: string;
@@ -177,6 +178,7 @@ export default class API {
   apiRoot: string;
   token: string;
   googleAuth?: GoogleCredentials;
+  main?: string;
   branch: string;
   useOpenAuthoring?: boolean;
   repo: string;
@@ -201,12 +203,13 @@ export default class API {
     this.apiRoot = config.apiRoot || 'https://api.github.com';
     this.token = config.token || '';
     this.googleAuth = config.googleAuth;
+    this.main = config.main || 'master';
     this.branch = config.branch || 'master';
     this.useOpenAuthoring = config.useOpenAuthoring;
     this.repo = config.repo || '';
     this.originRepo = config.originRepo || this.repo;
     this.repoURL = `/repos/${this.repo}`;
-    this.requestFunction = config.requestFunction || unsentRequest.performRequest
+    this.requestFunction = config.requestFunction || unsentRequest.performRequest;
     // when not in 'useOpenAuthoring' mode originRepoURL === repoURL
     this.originRepoURL = `/repos/${this.originRepo}`;
 
@@ -235,13 +238,15 @@ export default class API {
     return new Promise(resolve => {
       resolve({
         name: googleAuth.name,
-        login: googleAuth.email
-      })
-    })
+        login: googleAuth.email,
+      });
+    });
   }
 
   getUser() {
-    return (this.googleAuth ? this.getGoogleUser(this.googleAuth) :this.request('/user')) as Promise<GitHubUser>;
+    return (
+      this.googleAuth ? this.getGoogleUser(this.googleAuth) : this.request('/user')
+    ) as Promise<GitHubUser>;
   }
 
   async hasWriteAccess() {
@@ -1131,6 +1136,12 @@ export default class API {
     await this.updatePullRequestLabels(pullRequest.number, labels);
   }
 
+  // async updateMainStatus(newStatus: string) {
+  //   if (!this.main) return;
+  //   const pullRequest = await this.getMainPullRequests(PullRequestState.Open);
+  //   await this.setPullRequestStatus(pullRequest, newStatus);
+  // }
+
   async updateUnpublishedEntryStatus(collectionName: string, slug: string, newStatus: string) {
     const contentKey = this.generateContentKey(collectionName, slug);
     const branch = branchFromContentKey(contentKey);
@@ -1480,5 +1491,88 @@ export default class API {
     const branch = branchFromContentKey(contentKey);
     const pullRequest = await this.getBranchPullRequest(branch);
     return pullRequest.head.sha;
+  }
+
+  async getMainBranch() {
+    if (!this.main) return;
+    const result: Octokit.ReposGetBranchResponse = await this.request(
+      `${this.originRepoURL}/branches/${encodeURIComponent(this.main)}`,
+    );
+    return result;
+  }
+
+  async getMainPullRequests(state: PullRequestState) {
+    const pullRequests: Octokit.PullsListResponse = await this.requestAllPages(
+      `${this.originRepoURL}/pulls`,
+      {
+        params: {
+          ...(this.branch ? { head: await this.getHeadReference(this.branch) } : {}),
+          base: this.main,
+          state,
+          per_page: 100,
+        },
+      },
+    );
+
+    const cmsPullRequests = pullRequests.filter(pr =>
+      pr.head.ref.startsWith(`${CMS_BRANCH_PREFIX}/`),
+    );
+
+    return cmsPullRequests[0];
+  }
+
+  async fetchMain() {
+    if (!this.main) return {};
+    const pullRequest = await this.getMainPullRequests(PullRequestState.Open);
+    // const [{ files }, pullRequestAuthor] = await Promise.all([
+    //   this.getDifferences(this.branch, pullRequest.head.sha),
+    //   this.getPullRequestAuthor(pullRequest),
+    // ]);
+    // const diffs = await Promise.all(files.map(file => this.diffFromFile(file)));
+    const label = pullRequest.labels.find(l => isCMSLabel(l.name, this.cmsLabelPrefix)) as {
+      name: string;
+    };
+    const status = labelToStatus(label.name, this.cmsLabelPrefix);
+    const updatedAt = pullRequest.updated_at;
+    return {
+      // collection,
+      // slug,
+      status,
+      // diffs: diffs.map(d => ({ path: d.path, newFile: d.newFile, id: d.sha })),
+      updatedAt,
+      // pullRequestAuthor,
+    };
+  }
+
+  async updateMainStatus(newStatus: string) {
+    if (!this.main) return;
+    const pullRequest = await this.getMainPullRequests(PullRequestState.Open);
+    await this.setPullRequestStatus(pullRequest, newStatus);
+  }
+
+  async publishMain() {
+    if (!this.main) return;
+    const pullRequest = await this.getMainPullRequests(PullRequestState.Open);
+    await this.mergePR(pullRequest);
+  }
+
+  async closeMain() {
+    if (!this.main) return;
+    const pullRequest = await this.getMainPullRequests(PullRequestState.Open);
+    await this.closePR(pullRequest.number);
+  }
+
+  async createMainPR (title: string) {
+    const result: Octokit.PullsCreateResponse = await this.request(`${this.originRepoURL}/pulls`, {
+      method: 'POST',
+      body: JSON.stringify({
+        title,
+        body: DEFAULT_PR_BODY,
+        head: await this.branch,
+        base: this.main,
+      }),
+    });
+
+    return result;
   }
 }
