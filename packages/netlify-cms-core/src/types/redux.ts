@@ -369,6 +369,7 @@ export interface CmsBackend {
   squash_merges?: boolean;
   proxy_url?: string;
   commit_messages?: {
+    main?: string;
     create?: string;
     update?: string;
     delete?: string;

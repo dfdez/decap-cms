@@ -249,10 +249,12 @@ export class Editor extends React.Component {
   };
 
   handlePublishEntry = async (opts = {}) => {
-    const { createNew = false, duplicate = false } = opts;
+    // const { createNew = false, duplicate = false, main = false } = opts;
+    const { main = false } = opts;
+    console.log({ main })
     const {
       publishUnpublishedEntry,
-      createDraftDuplicateFromEntry,
+      // createDraftDuplicateFromEntry,
       entryDraft,
       collection,
       slug,
@@ -273,11 +275,11 @@ export class Editor extends React.Component {
 
     // this.deleteBackup();
 
-    if (createNew) {
-      navigateToNewEntry(collection.get('name'));
-    }
+    // if (createNew) {
+    //   navigateToNewEntry(collection.get('name'));
+    // }
 
-    duplicate && createDraftDuplicateFromEntry(entryDraft.get('entry'));
+    // duplicate && createDraftDuplicateFromEntry(entryDraft.get('entry'));
   };
 
   handleUnpublishEntry = async () => {

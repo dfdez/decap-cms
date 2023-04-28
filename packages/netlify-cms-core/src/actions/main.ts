@@ -26,7 +26,7 @@ export function mainStatusRequest() {
   } as const;
 }
 
-export function mainStatusSuccess(status: { status?: string; updatedAt?: string }) {
+export function mainStatusSuccess(status: { status?: string; updatedAt?: string } = {}) {
   return {
     type: STATUS_MAIN_SUCCESS,
     payload: { status },
@@ -74,6 +74,7 @@ export function mainCloseFailure() {
     type: CLOSE_MAIN_FAILURE,
   } as const;
 }
+
 export function checkMainStatus() {
   return async (dispatch: ThunkDispatch<State, {}, AnyAction>, getState: () => State) => {
     try {

@@ -199,10 +199,11 @@ export interface Implementation {
   mainStatus: () => Promise<{
     status?: string;
     updatedAt?: string;
-  }>;
+  } | undefined>;
   updateMainStatus: (newStatus: string) => Promise<void>;
   publishMain: () => Promise<void>;
   closeMain: () => Promise<void>;
+  createMainPR: (title?: string) => Promise<void>;
 }
 
 const MAX_CONCURRENT_DOWNLOADS = 10;

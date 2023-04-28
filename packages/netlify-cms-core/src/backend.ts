@@ -1319,8 +1319,8 @@ export class Backend {
     });
   }
 
-  async mainStatus() {
-    return this.implementation.mainStatus!();
+  mainStatus() {
+    return this.implementation.mainStatus();
   }
 
   updateMainStatus(newStatus: string) {
@@ -1332,7 +1332,11 @@ export class Backend {
   }
 
   closeMain() {
-    return this.implementation.closeMain!();
+    return this.implementation.closeMain();
+  }
+
+  createMainPR() {
+    return this.implementation.createMainPR(this.config.backend.commit_messages?.main);
   }
 }
 

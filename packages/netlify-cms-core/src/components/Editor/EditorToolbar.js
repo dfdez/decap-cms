@@ -253,6 +253,7 @@ export class EditorToolbar extends React.Component {
     onDelete: PropTypes.func.isRequired,
     onDeleteUnpublishedChanges: PropTypes.func.isRequired,
     onChangeStatus: PropTypes.func.isRequired,
+    onPublishMain: PropTypes.func.isRequired,
     onPublish: PropTypes.func.isRequired,
     unPublish: PropTypes.func.isRequired,
     onDuplicate: PropTypes.func.isRequired,
@@ -400,7 +401,7 @@ export class EditorToolbar extends React.Component {
   };
 
   renderNewEntryWorkflowPublishControls = ({ canPublish }) => {
-    const { isPublishing, onPublish, t } = this.props;
+    const { isPublishing, onPublish, onPublishMain, t } = this.props;
 
     return canPublish ? (
       <ToolbarDropdown
@@ -418,7 +419,7 @@ export class EditorToolbar extends React.Component {
           label={t('editor.editorToolbar.publishNow')}
           icon="arrow"
           iconDirection="right"
-          onClick={onPublish}
+          onClick={onPublishMain}
         />
         <DropdownItem
           label={t('editor.editorToolbar.stackChange')}

@@ -25,6 +25,7 @@ import { addAssets } from './media';
 import { loadMedia } from './mediaLibrary';
 import ValidationErrorTypes from '../constants/validationErrorTypes';
 import { navigateToEntry } from '../routing/history';
+import { checkMainStatus, updateMainStatus } from './main';
 
 import type {
   Collection,
@@ -490,7 +491,14 @@ export function publishUnpublishedEntry(collectionName: string, slug: string) {
     dispatch(unpublishedEntryPublishRequest(collectionName, slug));
     try {
       await backend.publishUnpublishedEntry(entry);
-      // re-load media after entry was published
+
+      if (!state.main.status?.status) {
+        await backend.createMainPR();
+        dispatch(checkMainStatus());
+      } else {
+        dispatch(updateMainStatus("", "DRAFT"));
+      }
+
       dispatch(loadMedia());
       dispatch(
         notifSend({

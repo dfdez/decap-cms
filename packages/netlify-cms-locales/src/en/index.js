@@ -113,6 +113,8 @@ const en = {
         'All changes to this entry will be deleted.\n\n Do you still want to delete?',
       loadingEntry: 'Loading entry...',
       confirmLoadBackup: 'A local backup was recovered for this entry, would you like to use it?',
+      onMainPublishing: 'Are you sure you want to publish all changes?',
+      onMainClosing: 'Are you sure you want to discard all changes?',
     },
     editorInterface: {
       toggleI18n: 'Toggle i18n',

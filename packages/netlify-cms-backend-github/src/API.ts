@@ -179,6 +179,7 @@ export default class API {
   token: string;
   googleAuth?: GoogleCredentials;
   main?: string;
+  _branch: string;
   branch: string;
   useOpenAuthoring?: boolean;
   repo: string;
@@ -203,8 +204,9 @@ export default class API {
     this.apiRoot = config.apiRoot || 'https://api.github.com';
     this.token = config.token || '';
     this.googleAuth = config.googleAuth;
-    this.main = config.main || 'master';
-    this.branch = config.branch || 'master';
+    this.main = config.main;
+    this._branch = config.branch || 'master';
+    this.branch = this.main || this._branch;
     this.useOpenAuthoring = config.useOpenAuthoring;
     this.repo = config.repo || '';
     this.originRepo = config.originRepo || this.repo;
@@ -691,20 +693,35 @@ export default class API {
     }
   }
 
+  async listFilesTry(folder: string, { repoURL = this.repoURL, depth = 1 } = {}) {
+    const params = {
+      params: depth > 1 ? { recursive: 1 } : {},
+    };
+    try {
+      const result: Octokit.GitGetTreeResponse = await this.request(
+        `${repoURL}/git/trees/${this.branch === this.main ? this._branch : this.branch}:${folder}`,
+        params,
+      );
+      return result;
+    } catch (error) {
+      const result: Octokit.GitGetTreeResponse = await this.request(
+        `${repoURL}/git/trees/${this.main}:${folder}`,
+        params,
+      );
+      return result;
+    }
+  }
+
   async listFiles(
     path: string,
-    { repoURL = this.repoURL, branch = this.branch, depth = 1 } = {},
+    { repoURL = this.repoURL, depth = 1 } = {},
   ): Promise<{ type: string; id: string; name: string; path: string; size: number }[]> {
     const folder = trim(path, '/');
     try {
-      const result: Octokit.GitGetTreeResponse = await this.request(
-        `${repoURL}/git/trees/${branch}:${folder}`,
-        {
-          // GitHub API supports recursive=1 for getting the entire recursive tree
-          // or omitting it to get the non-recursive tree
-          params: depth > 1 ? { recursive: 1 } : {},
-        },
-      );
+      const result: Octokit.GitGetTreeResponse = await this.listFilesTry(folder, {
+        repoURL,
+        depth,
+      });
       return (
         result.tree
           // filter only files and up to the required depth
@@ -964,6 +981,7 @@ export default class API {
   }
 
   async createBranchAndPullRequest(branchName: string, sha: string, commitMessage: string) {
+    await this.createMainBranch();
     await this.createBranch(branchName, sha);
     return this.createPR(commitMessage, branchName);
   }
@@ -1135,12 +1153,6 @@ export default class API {
     ];
     await this.updatePullRequestLabels(pullRequest.number, labels);
   }
-
-  // async updateMainStatus(newStatus: string) {
-  //   if (!this.main) return;
-  //   const pullRequest = await this.getMainPullRequests(PullRequestState.Open);
-  //   await this.setPullRequestStatus(pullRequest, newStatus);
-  // }
 
   async updateUnpublishedEntryStatus(collectionName: string, slug: string, newStatus: string) {
     const contentKey = this.generateContentKey(collectionName, slug);
@@ -1495,10 +1507,14 @@ export default class API {
 
   async getMainBranch() {
     if (!this.main) return;
-    const result: Octokit.ReposGetBranchResponse = await this.request(
-      `${this.originRepoURL}/branches/${encodeURIComponent(this.main)}`,
-    );
-    return result;
+    try {
+      const result: Octokit.ReposGetBranchResponse = await this.request(
+        `${this.originRepoURL}/branches/${encodeURIComponent(this.main)}`,
+      );
+      return result;
+    } catch (error) {
+      return;
+    }
   }
 
   async getMainPullRequests(state: PullRequestState) {
@@ -1506,7 +1522,7 @@ export default class API {
       `${this.originRepoURL}/pulls`,
       {
         params: {
-          ...(this.branch ? { head: await this.getHeadReference(this.branch) } : {}),
+          ...(this._branch ? { head: await this.getHeadReference(this._branch) } : {}),
           base: this.main,
           state,
           per_page: 100,
@@ -1521,14 +1537,26 @@ export default class API {
     return cmsPullRequests[0];
   }
 
+  updateBranch(branch: string) {
+    return (this.branch = branch);
+  }
+
   async fetchMain() {
-    if (!this.main) return {};
+    if (!this.main) return;
+
+    const branch = await this.getBranch(this._branch);
+    if (!branch) return;
+    this.updateBranch(this._branch);
+
     const pullRequest = await this.getMainPullRequests(PullRequestState.Open);
+    if (!pullRequest) return;
+
     // const [{ files }, pullRequestAuthor] = await Promise.all([
     //   this.getDifferences(this.branch, pullRequest.head.sha),
     //   this.getPullRequestAuthor(pullRequest),
     // ]);
     // const diffs = await Promise.all(files.map(file => this.diffFromFile(file)));
+
     const label = pullRequest.labels.find(l => isCMSLabel(l.name, this.cmsLabelPrefix)) as {
       name: string;
     };
@@ -1554,25 +1582,56 @@ export default class API {
     if (!this.main) return;
     const pullRequest = await this.getMainPullRequests(PullRequestState.Open);
     await this.mergePR(pullRequest);
+    await this.deleteBranch(this.branch);
+    this.updateBranch(this.main);
   }
 
   async closeMain() {
     if (!this.main) return;
     const pullRequest = await this.getMainPullRequests(PullRequestState.Open);
     await this.closePR(pullRequest.number);
+    await this.deleteBranch(this.branch);
+    this.updateBranch(this.main);
   }
 
-  async createMainPR (title: string) {
+  async createMainBranch() {
+    if (!this.main) return;
+    try {
+      await this.getBranch(this._branch);
+    } catch (error) {
+      const mainBranch = await this.getMainBranch();
+      if (!mainBranch) return;
+      await this.createBranch(this._branch, mainBranch.commit.sha);
+    } finally {
+      this.updateBranch(this._branch);
+    }
+  }
+
+  async createMainPR(title?: string) {
     const result: Octokit.PullsCreateResponse = await this.request(`${this.originRepoURL}/pulls`, {
       method: 'POST',
       body: JSON.stringify({
-        title,
+        title: title || DEFAULT_PR_BODY,
         body: DEFAULT_PR_BODY,
-        head: await this.branch,
+        head: this._branch,
         base: this.main,
       }),
     });
 
+    await this.updateMainStatus(this.initialWorkflowStatus);
+
+    this.updateBranch(this._branch);
+
     return result;
   }
+
+  // async autoMergeMainPR() {
+  //   if (!this.main) return;
+  //   const pullRequest = await this.getMainPullRequests(PullRequestState.Open);
+  //   const labels = [
+  //     statusToLabel('pending_publish', this.cmsLabelPrefix),
+  //     statusToLabel('auto_merge', this.cmsLabelPrefix),
+  //   ];
+  //   this.updatePullRequestLabels(pullRequest.number, labels);
+  // }
 }

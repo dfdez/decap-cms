@@ -77,7 +77,7 @@ function bootstrap(opts = {}) {
   store.dispatch(
     loadConfig(config, function onLoad() {
       store.dispatch(authenticateUser());
-      store.dispatch(checkMainStatus());
+      store.dispatch(checkMainStatus())
     }),
   );
 

@@ -341,6 +341,7 @@ export default class GitHub implements Implementation {
     this.api = new apiCtor({
       token: this.token,
       googleAuth: this.googleAuth,
+      main: this.main,
       branch: this.branch,
       repo: this.repo,
       requestFunction: this.useApps ? this.appsRequestFunction : unsentRequest.performRequest,
@@ -737,9 +738,12 @@ export default class GitHub implements Implementation {
     );
   }
 
-  async mainStatus() {
-    const pullRequest = await this.api!.fetchMain();
-    return pullRequest
+  mainStatus() {
+    return runWithLock(
+      this.lock,
+      () => this.api!.fetchMain(),
+      'Failed to acquire main status lock',
+    );
   }
 
   updateMainStatus(newStatus: string) {
@@ -751,7 +755,7 @@ export default class GitHub implements Implementation {
     );
   }
 
-  async publishMain() {
+  publishMain() {
     return runWithLock(
       this.lock,
       () => this.api!.publishMain(),
@@ -759,10 +763,18 @@ export default class GitHub implements Implementation {
     );
   }
 
-  async closeMain() {
+  closeMain() {
     return runWithLock(
       this.lock,
       () => this.api!.closeMain(),
+      'Failed to close main status lock',
+    );
+  }
+
+  createMainPR(title?: string) {
+    return runWithLock(
+      this.lock,
+      () => this.api!.createMainPR(title),
       'Failed to close main status lock',
     );
   }

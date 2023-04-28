@@ -252,10 +252,6 @@ export class EditorToolbar extends React.Component {
     onPersistAndNew: PropTypes.func.isRequired,
     onPersistAndDuplicate: PropTypes.func.isRequired,
     showDelete: PropTypes.bool.isRequired,
-    onDelete: PropTypes.func.isRequired,
-    onDeleteUnpublishedChanges: PropTypes.func.isRequired,
-    onChangeStatus: PropTypes.func.isRequired,
-    onPublish: PropTypes.func.isRequired,
     unPublish: PropTypes.func.isRequired,
     onDuplicate: PropTypes.func.isRequired,
     onPublishAndNew: PropTypes.func.isRequired,
@@ -277,11 +273,27 @@ export class EditorToolbar extends React.Component {
     editorBackLink: PropTypes.string.isRequired,
   };
 
-  // handleChangeStatus = newStatusName => {
-  //   const { updateMainStatus, currentStatus, } = this.props;
-  //   const newStatus = status.get(newStatusName);
-  //   updateMainStatus(currentStatus, newStatus);
-  // };
+  handleChangeStatus = newStatusName => {
+    const { updateMainStatus, currentStatus, } = this.props;
+    const newStatus = status.get(newStatusName);
+    updateMainStatus(currentStatus, newStatus);
+  };
+
+  handleDelete = () => {
+    const { closeMain, t } = this.props;
+    if (!window.confirm(t('editor.editor.onMainClosing'))) {
+      return;
+    }
+    closeMain();
+  };
+
+  handlePublish = () => {
+    const { publishMain, t } = this.props;
+    if (!window.confirm(t('editor.editor.onMainPublishing'))) {
+      return;
+    }
+    publishMain()
+  };
 
   componentDidMount() {
     const { isNewEntry, loadDeployPreview } = this.props;
@@ -297,23 +309,23 @@ export class EditorToolbar extends React.Component {
     }
   }
 
-  renderSimpleControls = () => {
-    const { collection, hasChanged, isNewEntry, showDelete, onDelete, t } = this.props;
-    const canCreate = collection.get('create');
+  // renderSimpleControls = () => {
+  //   const { collection, hasChanged, isNewEntry, showDelete, onDelete, t } = this.props;
+  //   const canCreate = collection.get('create');
 
-    return (
-      <>
-        {!isNewEntry && !hasChanged
-          ? this.renderExistingEntrySimplePublishControls({ canCreate })
-          : this.renderNewEntrySimplePublishControls({ canCreate })}
-        <div>
-          {showDelete ? (
-            <DeleteButton onClick={onDelete}>{t('editor.editorToolbar.deleteEntry')}</DeleteButton>
-          ) : null}
-        </div>
-      </>
-    );
-  };
+  //   return (
+  //     <>
+  //       {!isNewEntry && !hasChanged
+  //         ? this.renderExistingEntrySimplePublishControls({ canCreate })
+  //         : this.renderNewEntrySimplePublishControls({ canCreate })}
+  //       <div>
+  //         {showDelete ? (
+  //           <DeleteButton onClick={onDelete}>{t('editor.editorToolbar.deleteEntry')}</DeleteButton>
+  //         ) : null}
+  //       </div>
+  //     </>
+  //   );
+  // };
 
   // renderDeployPreviewControls = label => {
   //   const { deployPreview = {}, loadDeployPreview, t } = this.props;
@@ -363,7 +375,7 @@ export class EditorToolbar extends React.Component {
   };
 
   renderWorkflowStatusControls = () => {
-    const { isUpdatingStatus, onChangeStatus, currentStatus, t, useOpenAuthoring } = this.props;
+    const { isUpdatingStatus, currentStatus, t, useOpenAuthoring } = this.props;
 
     const statusToTranslation = {
       [status.get('DRAFT')]: t('editor.editorToolbar.draft'),
@@ -384,12 +396,12 @@ export class EditorToolbar extends React.Component {
         >
           <StatusDropdownItem
             label={t('editor.editorToolbar.draft')}
-            onClick={() => onChangeStatus('DRAFT')}
+            onClick={() => this.handleChangeStatus('DRAFT')}
             icon={currentStatus === status.get('DRAFT') ? 'check' : null}
           />
           <StatusDropdownItem
             label={t('editor.editorToolbar.inReview')}
-            onClick={() => onChangeStatus('PENDING_REVIEW')}
+            onClick={() => this.handleChangeStatus('PENDING_REVIEW')}
             icon={currentStatus === status.get('PENDING_REVIEW') ? 'check' : null}
           />
           {useOpenAuthoring ? (
@@ -397,7 +409,7 @@ export class EditorToolbar extends React.Component {
           ) : (
             <StatusDropdownItem
               label={t('editor.editorToolbar.ready')}
-              onClick={() => onChangeStatus('PENDING_PUBLISH')}
+              onClick={() => this.handleChangeStatus('PENDING_PUBLISH')}
               icon={currentStatus === status.get('PENDING_PUBLISH') ? 'check' : null}
             />
           )}
@@ -408,7 +420,7 @@ export class EditorToolbar extends React.Component {
   };
 
   renderNewEntryWorkflowPublishControls = () => {
-    const { isPublishing, onPublish, t } = this.props;
+    const { isPublishing, t } = this.props;
 
     return (
       <ToolbarDropdown
@@ -426,7 +438,7 @@ export class EditorToolbar extends React.Component {
           label={t('editor.editorToolbar.publishNow')}
           icon="arrow"
           iconDirection="right"
-          onClick={onPublish}
+          onClick={this.handlePublish}
         />
       </ToolbarDropdown>
     )
@@ -542,9 +554,6 @@ export class EditorToolbar extends React.Component {
 
   renderWorkflowControls = () => {
     const {
-      onDelete,
-      onDeleteUnpublishedChanges,
-      hasUnpublishedChanges,
       useOpenAuthoring,
       isDeleting,
       currentStatus,
@@ -563,7 +572,7 @@ export class EditorToolbar extends React.Component {
         (
           <DeleteButton
             key="delete-button"
-            onClick={hasUnpublishedChanges ? onDeleteUnpublishedChanges : onDelete}
+            onClick={this.handleDelete}
           >
             {isDeleting ? t('editor.editorToolbar.discarding') : t('editor.editorToolbar.discardChanges')}
           </DeleteButton>
@@ -588,18 +597,6 @@ export class EditorToolbar extends React.Component {
   };
 
   render() {
-    const {
-      // user,
-      // hasChanged,
-      // displayUrl,
-      // collection,
-      hasWorkflow,
-      // state
-      // onLogoutClick,
-      // t,
-      // editorBackLink,
-    } = this.props;
-
     return (
       // <ToolbarContainer>
       //   <ToolbarSectionBackLink to={editorBackLink}>
@@ -619,7 +616,8 @@ export class EditorToolbar extends React.Component {
       //   </ToolbarSectionBackLink>
       <ToolbarSectionMain>
         <ToolbarSubSectionFirst>
-          {hasWorkflow ? this.renderWorkflowControls() : this.renderSimpleControls()}
+          {this.renderWorkflowControls()}
+          {/* {hasWorkflow ? this.renderWorkflowControls() : this.renderSimpleControls()} */}
         </ToolbarSubSectionFirst>
         {/* <ToolbarSubSectionLast>
             {hasWorkflow
@@ -648,13 +646,9 @@ function mapStateToProps(state) {
 }
 
 const mapDispatchToProps = {
-  onChangeStatus: newStatusName => {
-    const { updateMainStatus, currentStatus, } = this.props;
-    const newStatus = status.get(newStatusName);
-    updateMainStatus(currentStatus, newStatus);
-  },
-  onDelete: closeMain,
-  onPublish: publishMain
+  updateMainStatus,
+  closeMain,
+  publishMain
 };
 
 export default connect(mapStateToProps, mapDispatchToProps)(translate()(EditorToolbar));
