@@ -1,4 +1,5 @@
 import type { Action } from 'redux';
+import type { Options as PrettierOptions } from 'prettier';
 import type { StaticallyTypedRecord } from './immutable';
 import type { Map, List, OrderedMap, Set } from 'immutable';
 import type { FILES, FOLDER } from '../constants/collectionTypes';
@@ -621,6 +622,8 @@ type i18n = StaticallyTypedRecord<{
 
 export type Format = keyof typeof formatExtensions;
 
+export type PrettierMapOptions = Map<keyof PrettierOptions, PrettierOptions[keyof PrettierOptions]>
+
 type CollectionObject = {
   name: string;
   folder?: string;
@@ -636,6 +639,7 @@ type CollectionObject = {
   type: 'file_based_collection' | 'folder_based_collection';
   extension?: string;
   format?: Format;
+  prettier?: PrettierMapOptions;
   frontmatter_delimiter?: List<string> | string | [string, string];
   create?: boolean;
   delete?: boolean;
