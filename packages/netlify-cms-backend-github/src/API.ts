@@ -179,8 +179,8 @@ export default class API {
   token: string;
   googleAuth?: GoogleCredentials;
   main?: string;
-  _branch: string;
   branch: string;
+  useMain: boolean;
   useOpenAuthoring?: boolean;
   repo: string;
   originRepo: string;
@@ -205,8 +205,8 @@ export default class API {
     this.token = config.token || '';
     this.googleAuth = config.googleAuth;
     this.main = config.main;
-    this._branch = config.branch || 'master';
-    this.branch = this.main || this._branch;
+    this.branch = config.branch || 'master';
+    this.useMain = Boolean(this.main);
     this.useOpenAuthoring = config.useOpenAuthoring;
     this.repo = config.repo || '';
     this.originRepo = config.originRepo || this.repo;
@@ -611,7 +611,7 @@ export default class API {
     const branch = branchFromContentKey(contentKey);
     const pullRequest = await this.getBranchPullRequest(branch);
     const [{ files }, pullRequestAuthor] = await Promise.all([
-      this.getDifferences(this.branch, pullRequest.head.sha),
+      this.getDifferences(this.getCurrentBranch(), pullRequest.head.sha),
       this.getPullRequestAuthor(pullRequest),
     ]);
     const diffs = await Promise.all(files.map(file => this.diffFromFile(file)));
@@ -634,7 +634,7 @@ export default class API {
     path: string,
     sha?: string | null,
     {
-      branch = this.branch,
+      branch = this.getCurrentBranch(),
       repoURL = this.repoURL,
       parseText = true,
     }: {
@@ -656,7 +656,7 @@ export default class API {
         const result: Octokit.ReposListCommitsResponse = await this.request(
           `${this.originRepoURL}/commits`,
           {
-            params: { path, sha: this.branch },
+            params: { path, sha: this.getCurrentBranch() },
           },
         );
         const { commit } = result[0];
@@ -693,35 +693,19 @@ export default class API {
     }
   }
 
-  async listFilesTry(folder: string, { repoURL = this.repoURL, depth = 1 } = {}) {
-    const params = {
-      params: depth > 1 ? { recursive: 1 } : {},
-    };
-    try {
-      const result: Octokit.GitGetTreeResponse = await this.request(
-        `${repoURL}/git/trees/${this.branch === this.main ? this._branch : this.branch}:${folder}`,
-        params,
-      );
-      return result;
-    } catch (error) {
-      const result: Octokit.GitGetTreeResponse = await this.request(
-        `${repoURL}/git/trees/${this.main}:${folder}`,
-        params,
-      );
-      return result;
-    }
-  }
-
   async listFiles(
     path: string,
-    { repoURL = this.repoURL, depth = 1 } = {},
+    { repoURL = this.repoURL, branch = this.getCurrentBranch(), depth = 1 } = {},
   ): Promise<{ type: string; id: string; name: string; path: string; size: number }[]> {
     const folder = trim(path, '/');
     try {
-      const result: Octokit.GitGetTreeResponse = await this.listFilesTry(folder, {
-        repoURL,
-        depth,
-      });
+      const params = {
+        params: depth > 1 ? { recursive: 1 } : {},
+      };
+      const result: Octokit.GitGetTreeResponse = await this.request(
+        `${repoURL}/git/trees/${branch}:${folder}`,
+        params,
+      );
       return (
         result.tree
           // filter only files and up to the required depth
@@ -946,7 +930,10 @@ export default class API {
     }
   }
 
-  async getFileSha(path: string, { repoURL = this.repoURL, branch = this.branch } = {}) {
+  async getFileSha(
+    path: string,
+    { repoURL = this.repoURL, branch = this.getCurrentBranch() } = {},
+  ) {
     /**
      * We need to request the tree first to get the SHA. We use extended SHA-1
      * syntax (<rev>:<path>) to get a blob from a tree without having to recurse
@@ -981,7 +968,6 @@ export default class API {
   }
 
   async createBranchAndPullRequest(branchName: string, sha: string, commitMessage: string) {
-    await this.createMainBranch();
     await this.createBranch(branchName, sha);
     return this.createPR(commitMessage, branchName);
   }
@@ -1014,8 +1000,10 @@ export default class API {
     const contentKey = this.generateContentKey(options.collectionName as string, slug);
     const branch = branchFromContentKey(contentKey);
     const unpublished = options.unpublished || false;
+    if (this.useMain) await this.createBranchToMain();
     if (!unpublished) {
-      const branchData = await this.getDefaultBranch();
+      const branchData = (await this.getMainBranch()) || (await this.getDefaultBranch());
+      // const branchData = await this.getDefaultBranch();
       const changeTree = await this.updateTree(branchData.commit.sha, files);
       const commitResponse = await this.commit(options.commitMessage, changeTree);
 
@@ -1162,7 +1150,7 @@ export default class API {
     if (!this.useOpenAuthoring) {
       await this.setPullRequestStatus(pullRequest, newStatus);
     } else {
-      if (status === 'pending_publish') {
+      if (newStatus === 'pending_publish') {
         throw new Error('Open Authoring entries may not be set to the status "pending_publish".');
       }
 
@@ -1195,13 +1183,69 @@ export default class API {
     await this.deleteBranch(branch);
   }
 
-  async publishUnpublishedEntry(collectionName: string, slug: string) {
+  async prePublishUnpublishedEntry(
+    pullRequest: GitHubPull,
+    mainPullRequest?: GitHubPull,
+    options?: { slug?: string; publishMain?: boolean },
+  ) {
+    if (!this.main) return;
+
+    const { publishMain } = options || {};
+
+    if (publishMain && !mainPullRequest) {
+      await this.updatePR(pullRequest.number, { base: this.main });
+      await this.removeBranchToMain();
+    }
+  }
+
+  async postPublishUnpublishedEntry(
+    pullRequest: GitHubPull,
+    mainPullRequest?: GitHubPull,
+    options?: { slug?: string; publishMain?: boolean },
+  ) {
+    if (!this.main) return;
+
+    const { slug = '', publishMain } = options || {};
+
+    if (!publishMain) {
+      if (!mainPullRequest) await this.createMainPR();
+      return this.updateMainStatus(this.initialWorkflowStatus);
+    }
+
+    if (mainPullRequest) {
+      const mainDiffs = await this.getDifferences(
+        mainPullRequest.base.ref,
+        mainPullRequest.head.ref,
+      );
+      const hasOnlyOneFile = mainDiffs.files.length === 1;
+      const hasOnlyCurrentChange = hasOnlyOneFile && mainDiffs.files[0].filename.includes(slug);
+      if (hasOnlyCurrentChange) {
+        await this.publishMain();
+      } else {
+        const lastCommit = mainDiffs.commits[mainDiffs.commits.length - 1];
+        const mainPullRequestMerge = await this.createMainPR(
+          pullRequest.title,
+          lastCommit.sha,
+        );
+        await this.mergePR(mainPullRequestMerge);
+        await this.deleteBranch(mainPullRequestMerge.head.ref);
+      }
+    }
+  }
+
+  async publishUnpublishedEntry(collectionName: string, slug: string, publishMain?: boolean) {
     const contentKey = this.generateContentKey(collectionName, slug);
     const branch = branchFromContentKey(contentKey);
 
     const pullRequest = await this.getBranchPullRequest(branch);
-    await this.mergePR(pullRequest);
-    await this.deleteBranch(branch);
+    const mainPullRequest = await this.getMainPullRequest();
+
+    await this.prePublishUnpublishedEntry(pullRequest, mainPullRequest, { slug, publishMain });
+
+    await this.mergePR(pullRequest, { force: true });
+    await this.deleteBranch(pullRequest.head.ref);
+
+    await this.postPublishUnpublishedEntry(pullRequest, mainPullRequest, { slug, publishMain });
   }
 
   async createRef(type: string, name: string, sha: string) {
@@ -1221,6 +1265,18 @@ export default class API {
         body: JSON.stringify({ sha, force }),
       },
     );
+    return result;
+  }
+
+  async mergeRef(base: string, head: string, commit_message?: string) {
+    const result: Octokit.GitCreateRefResponse = await this.request(`${this.repoURL}/merges`, {
+      method: 'POST',
+      body: JSON.stringify({
+        base,
+        head,
+        commit_message,
+      }),
+    });
     return result;
   }
 
@@ -1297,6 +1353,11 @@ export default class API {
     return this.patchRef('heads', branchName, sha, { force });
   }
 
+  async mergeBranch(base: string, head: string, commit_message?: string) {
+    const result = await this.mergeRef(base, head, commit_message);
+    return result;
+  }
+
   deleteBranch(branchName: string) {
     return this.deleteRef('heads', branchName).catch((err: Error) => {
       // If the branch doesn't exist, then it has already been deleted -
@@ -1342,6 +1403,32 @@ export default class API {
     return result;
   }
 
+  async updatePR(number: number, options: { base: string }) {
+    console.log('%c Updating PR', 'line-height: 30px;text-align: center;font-weight: bold');
+    const result: Octokit.PullsUpdateBranchResponse = await this.request(
+      `${this.originRepoURL}/pulls/${number}`,
+      {
+        method: 'PATCH',
+        body: JSON.stringify(options),
+      },
+    );
+    return result;
+  }
+
+  async updateBaseOfOpenPRs(update: string) {
+    if (update !== this.main && update !== this.branch) return;
+    const updateToMain = update === this.main;
+    const openPullRequest = updateToMain
+      ? await this.getPullRequests(undefined, PullRequestState.Open, () => true)
+      : await this.getMainPullRequests(undefined, PullRequestState.Open);
+    if (!updateToMain) await this.createBranchToMain();
+    for (const pullRequest of openPullRequest) {
+      if (!updateToMain)
+        await this.mergeBranch(pullRequest.head.ref, this.branch, pullRequest.title);
+      await this.updatePR(pullRequest.number, { base: update });
+    }
+  }
+
   async closePR(number: number) {
     console.log('%c Deleting PR', 'line-height: 30px;text-align: center;font-weight: bold');
     const result: Octokit.PullsUpdateBranchResponse = await this.request(
@@ -1356,7 +1443,7 @@ export default class API {
     return result;
   }
 
-  async mergePR(pullrequest: GitHubPull) {
+  async mergePR(pullrequest: GitHubPull, { force }: { force?: boolean } = {}) {
     console.log('%c Merging PR', 'line-height: 30px;text-align: center;font-weight: bold');
     try {
       const result: Octokit.PullsMergeResponse = await this.request(
@@ -1373,7 +1460,8 @@ export default class API {
       return result;
     } catch (error) {
       if (error instanceof APIError && error.status === 405) {
-        return this.forceMergePR(pullrequest);
+        if (force) return this.forceMergePR(pullrequest);
+        else throw error;
       } else {
         throw error;
       }
@@ -1422,7 +1510,7 @@ export default class API {
   async updateTree(
     baseSha: string,
     files: { path: string; sha: string | null; newPath?: string }[],
-    branch = this.branch,
+    branch = this.getCurrentBranch(),
   ) {
     const toMove: { from: string; to: string; sha: string }[] = [];
     const tree = files.reduce((acc, file) => {
@@ -1517,12 +1605,12 @@ export default class API {
     }
   }
 
-  async getMainPullRequests(state: PullRequestState) {
+  async getMainPullRequests(head: string | undefined, state: PullRequestState) {
     const pullRequests: Octokit.PullsListResponse = await this.requestAllPages(
       `${this.originRepoURL}/pulls`,
       {
         params: {
-          ...(this._branch ? { head: await this.getHeadReference(this._branch) } : {}),
+          ...(head ? { head: await this.getHeadReference(head) } : {}),
           base: this.main,
           state,
           per_page: 100,
@@ -1534,28 +1622,51 @@ export default class API {
       pr.head.ref.startsWith(`${CMS_BRANCH_PREFIX}/`),
     );
 
-    return cmsPullRequests[0];
+    return cmsPullRequests;
   }
 
-  updateBranch(branch: string) {
-    return (this.branch = branch);
+  async getMainPullRequest() {
+    const mainPullRequests = await this.getMainPullRequests(this.branch, PullRequestState.Open);
+    return mainPullRequests[0];
+  }
+
+  getCurrentBranch() {
+    if (!this.main) return this.branch;
+    return this.useMain ? this.main : this.branch;
+  }
+
+  async branchExists(branch: string) {
+    try {
+      const branchInfo = await this.getBranch(branch);
+      return Boolean(branchInfo);
+    } catch (error) {
+      return false;
+    }
+  }
+
+  async createBranchToMain() {
+    if (!this.main) return;
+    const mainBranch = await this.getMainBranch();
+    if (!mainBranch) return;
+    await this.createBranch(this.branch, mainBranch.commit.sha);
+    this.useMain = false;
+  }
+
+  async removeBranchToMain() {
+    if (!this.main) return;
+    await this.deleteBranch(this.branch);
+    this.useMain = true;
   }
 
   async fetchMain() {
     if (!this.main) return;
 
-    const branch = await this.getBranch(this._branch);
+    const branch = await this.branchExists(this.branch);
     if (!branch) return;
-    this.updateBranch(this._branch);
+    this.useMain = false;
 
-    const pullRequest = await this.getMainPullRequests(PullRequestState.Open);
+    const pullRequest = await this.getMainPullRequest();
     if (!pullRequest) return;
-
-    // const [{ files }, pullRequestAuthor] = await Promise.all([
-    //   this.getDifferences(this.branch, pullRequest.head.sha),
-    //   this.getPullRequestAuthor(pullRequest),
-    // ]);
-    // const diffs = await Promise.all(files.map(file => this.diffFromFile(file)));
 
     const label = pullRequest.labels.find(l => isCMSLabel(l.name, this.cmsLabelPrefix)) as {
       name: string;
@@ -1563,75 +1674,48 @@ export default class API {
     const status = labelToStatus(label.name, this.cmsLabelPrefix);
     const updatedAt = pullRequest.updated_at;
     return {
-      // collection,
-      // slug,
       status,
-      // diffs: diffs.map(d => ({ path: d.path, newFile: d.newFile, id: d.sha })),
       updatedAt,
-      // pullRequestAuthor,
     };
   }
 
   async updateMainStatus(newStatus: string) {
     if (!this.main) return;
-    const pullRequest = await this.getMainPullRequests(PullRequestState.Open);
+    const pullRequest = await this.getMainPullRequest();
     await this.setPullRequestStatus(pullRequest, newStatus);
   }
 
   async publishMain() {
     if (!this.main) return;
-    const pullRequest = await this.getMainPullRequests(PullRequestState.Open);
+    const pullRequest = await this.getMainPullRequest();
+    await this.updateBaseOfOpenPRs(this.main);
     await this.mergePR(pullRequest);
     await this.deleteBranch(this.branch);
-    this.updateBranch(this.main);
+    await this.updateBaseOfOpenPRs(this.branch);
+    this.useMain = true;
   }
 
   async closeMain() {
     if (!this.main) return;
-    const pullRequest = await this.getMainPullRequests(PullRequestState.Open);
+    const pullRequest = await this.getMainPullRequest();
     await this.closePR(pullRequest.number);
     await this.deleteBranch(this.branch);
-    this.updateBranch(this.main);
+    this.useMain = true;
   }
 
-  async createMainBranch() {
-    if (!this.main) return;
-    try {
-      await this.getBranch(this._branch);
-    } catch (error) {
-      const mainBranch = await this.getMainBranch();
-      if (!mainBranch) return;
-      await this.createBranch(this._branch, mainBranch.commit.sha);
-    } finally {
-      this.updateBranch(this._branch);
-    }
-  }
-
-  async createMainPR(title?: string) {
+  async createMainPR(title?: string, head?: string) {
     const result: Octokit.PullsCreateResponse = await this.request(`${this.originRepoURL}/pulls`, {
       method: 'POST',
       body: JSON.stringify({
         title: title || DEFAULT_PR_BODY,
         body: DEFAULT_PR_BODY,
-        head: this._branch,
+        head: head || this.branch,
         base: this.main,
       }),
     });
 
-    await this.updateMainStatus(this.initialWorkflowStatus);
-
-    this.updateBranch(this._branch);
+    this.useMain = false;
 
     return result;
   }
-
-  // async autoMergeMainPR() {
-  //   if (!this.main) return;
-  //   const pullRequest = await this.getMainPullRequests(PullRequestState.Open);
-  //   const labels = [
-  //     statusToLabel('pending_publish', this.cmsLabelPrefix),
-  //     statusToLabel('auto_merge', this.cmsLabelPrefix),
-  //   ];
-  //   this.updatePullRequestLabels(pullRequest.number, labels);
-  // }
 }

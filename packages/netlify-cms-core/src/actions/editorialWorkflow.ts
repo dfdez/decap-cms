@@ -25,7 +25,7 @@ import { addAssets } from './media';
 import { loadMedia } from './mediaLibrary';
 import ValidationErrorTypes from '../constants/validationErrorTypes';
 import { navigateToEntry } from '../routing/history';
-import { checkMainStatus, updateMainStatus } from './main';
+import { checkMainStatus } from './main';
 
 import type {
   Collection,
@@ -482,7 +482,11 @@ export function deleteUnpublishedEntry(collection: string, slug: string) {
   };
 }
 
-export function publishUnpublishedEntry(collectionName: string, slug: string) {
+export function publishUnpublishedEntry(
+  collectionName: string,
+  slug: string,
+  publishMain: boolean,
+) {
   return async (dispatch: ThunkDispatch<State, {}, AnyAction>, getState: () => State) => {
     const state = getState();
     const collections = state.collections;
@@ -490,14 +494,9 @@ export function publishUnpublishedEntry(collectionName: string, slug: string) {
     const entry = selectUnpublishedEntry(state, collectionName, slug);
     dispatch(unpublishedEntryPublishRequest(collectionName, slug));
     try {
-      await backend.publishUnpublishedEntry(entry);
+      await backend.publishUnpublishedEntry(entry, publishMain);
 
-      if (!state.main.status?.status) {
-        await backend.createMainPR();
-        dispatch(checkMainStatus());
-      } else {
-        dispatch(updateMainStatus("", "DRAFT"));
-      }
+      await dispatch(checkMainStatus());
 
       dispatch(loadMedia());
       dispatch(

@@ -127,6 +127,7 @@ class Header extends React.Component {
     isTestRepo: PropTypes.bool,
     t: PropTypes.func.isRequired,
     checkBackendStatus: PropTypes.func.isRequired,
+    checkMainStatus: PropTypes.func.isRequired,
   };
 
   intervalId;

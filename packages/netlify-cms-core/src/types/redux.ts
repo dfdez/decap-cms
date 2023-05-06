@@ -361,6 +361,7 @@ export interface CmsBackend {
   auth_scope?: CmsAuthScope;
   open_authoring?: boolean;
   repo?: string;
+  main?: string;
   branch?: string;
   api_root?: string;
   site_domain?: string;

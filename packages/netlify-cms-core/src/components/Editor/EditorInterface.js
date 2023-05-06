@@ -173,10 +173,10 @@ class EditorInterface extends Component {
   };
 
   handleOnPublish = async (opts = {}) => {
-    const { createNew = false, duplicate = false, main = false } = opts;
+    const { createNew = false, duplicate = false, publishMain = false } = opts;
     await this.controlPaneRef.switchToDefaultLocale();
     this.controlPaneRef.validate();
-    this.props.onPublish({ createNew, duplicate, main });
+    this.props.onPublish({ createNew, duplicate, publishMain });
   };
 
   handleTogglePreview = () => {
@@ -334,7 +334,7 @@ class EditorInterface extends Component {
           onDeleteUnpublishedChanges={onDeleteUnpublishedChanges}
           onChangeStatus={onChangeStatus}
           showDelete={showDelete}
-          onPublishMain={() => this.handleOnPublish({ main: true })}
+          onPublishMain={() => this.handleOnPublish({ publishMain: true })}
           onPublish={onPublish}
           unPublish={unPublish}
           onDuplicate={onDuplicate}

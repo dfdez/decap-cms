@@ -79,7 +79,7 @@ export function checkMainStatus() {
   return async (dispatch: ThunkDispatch<State, {}, AnyAction>, getState: () => State) => {
     try {
       const state = getState();
-      if (state.main.isFetching) {
+      if (state.main.isFetching || !state.config.backend.main) {
         return;
       }
       dispatch(mainStatusRequest());
@@ -99,7 +99,7 @@ export function updateMainStatus(oldStatus: string, newStatus: string) {
     try {
       if (oldStatus === newStatus) return;
       const state = getState();
-      if (state.main.isFetching) {
+      if (state.main.isFetching || !state.config.backend.main) {
         return;
       }
       dispatch(mainStatusRequest());
@@ -128,7 +128,7 @@ export function publishMain() {
   return async (dispatch: ThunkDispatch<State, {}, AnyAction>, getState: () => State) => {
     try {
       const state = getState();
-      if (state.main.isFetching) {
+      if (state.main.isFetching || !state.config.backend.main) {
         return;
       }
       dispatch(mainPublishRequest());
@@ -157,7 +157,7 @@ export function closeMain() {
   return async (dispatch: ThunkDispatch<State, {}, AnyAction>, getState: () => State) => {
     try {
       const state = getState();
-      if (state.main.isFetching) {
+      if (state.main.isFetching || !state.config.backend.main) {
         return;
       }
       dispatch(mainCloseRequest());

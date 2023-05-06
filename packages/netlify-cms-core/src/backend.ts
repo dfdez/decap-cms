@@ -878,7 +878,7 @@ export class Backend {
     }
 
     const dataFiles = sortBy(
-      entryData.diffs.filter(d => d.path.endsWith(extension)),
+      entryData.diffs.filter(d => d.path.endsWith(extension) && d.path.includes(slug)),
       f => f.path.length,
     );
 
@@ -1266,12 +1266,12 @@ export class Backend {
     return this.implementation.updateUnpublishedEntryStatus!(collection, slug, newStatus);
   }
 
-  async publishUnpublishedEntry(entry: EntryMap) {
+  async publishUnpublishedEntry(entry: EntryMap, publishMain?: boolean) {
     const collection = entry.get('collection');
     const slug = entry.get('slug');
 
     await this.invokePrePublishEvent(entry);
-    await this.implementation.publishUnpublishedEntry!(collection, slug);
+    await this.implementation.publishUnpublishedEntry!(collection, slug, publishMain);
     await this.invokePostPublishEvent(entry);
   }
 
