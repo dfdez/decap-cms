@@ -173,7 +173,8 @@ export interface Implementation {
     slug: string,
     newStatus: string,
   ) => Promise<void>;
-  publishUnpublishedEntry: (collection: string, slug: string, publishMain?: boolean) => Promise<void>;
+  publishUnpublishedEntryMain: (collection: string, slug: string, options: { mainCommitMessage: string, publishMain?: boolean }) => Promise<void>;
+  publishUnpublishedEntry: (collection: string, slug: string) => Promise<void>;
   deleteUnpublishedEntry: (collection: string, slug: string) => Promise<void>;
   getDeployPreview: (
     collectionName: string,

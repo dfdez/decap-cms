@@ -1,10 +1,8 @@
 import React from 'react';
 import PropTypes from 'prop-types';
-import ImmutablePropTypes from 'react-immutable-proptypes';
 import { css } from '@emotion/core';
 import styled from '@emotion/styled';
 import { translate } from 'react-polyglot';
-// import { Link } from 'react-router-dom';
 import {
   Icon,
   Dropdown,
@@ -12,15 +10,12 @@ import {
   StyledDropdownButton,
   colorsRaw,
   colors,
-  // components,
   buttons,
-  // zIndex,
 } from 'netlify-cms-ui-default';
 import { connect } from 'react-redux';
 
-import { updateMainStatus, closeMain, publishMain } from '../../actions/main';
+import { updateMainStatus, publishMain, closeMain } from '../../actions/main';
 import { status } from '../../constants/publishModes';
-// import { SettingsDropdown } from '../UI';
 
 const styles = {
   noOverflow: css`
@@ -64,40 +59,12 @@ const TooltipText = styled.div`
   transition: opacity 0.3s;
 `;
 
-const Tooltip = styled.div`
-  position: relative;
-  display: inline-block;
-  &:hover + ${TooltipText} {
-    visibility: visible;
-    opacity: 0.9;
-  }
-`;
-
-const TooltipContainer = styled.div`
-  position: relative;
-`;
-
 const DropdownButton = styled(StyledDropdownButton)`
   ${styles.noOverflow}
   @media (max-width: 1200px) {
     padding-left: 10px;
   }
 `;
-
-// const ToolbarContainer = styled.div`
-//   box-shadow: 0 2px 6px 0 rgba(68, 74, 87, 0.05), 0 1px 3px 0 rgba(68, 74, 87, 0.1),
-//     0 2px 54px rgba(0, 0, 0, 0.1);
-//   position: fixed;
-//   top: 0;
-//   left: 0;
-//   width: 100%;
-//   min-width: 800px;
-//   z-index: ${zIndex.zIndex300};
-//   background-color: #fff;
-//   height: 66px;
-//   display: flex;
-//   justify-content: space-between;
-// `;
 
 const ToolbarSectionMain = styled.div`
   ${styles.toolbarSection};
@@ -112,28 +79,6 @@ const ToolbarSubSectionFirst = styled.div`
   align-items: center;
 `;
 
-// const ToolbarSubSectionLast = styled(ToolbarSubSectionFirst)`
-//   justify-content: flex-end;
-// `;
-
-// const ToolbarSectionBackLink = styled(Link)`
-//   ${styles.toolbarSection};
-//   border-right-width: 1px;
-//   font-weight: normal;
-//   padding: 0 20px;
-
-//   &:hover,
-//   &:focus {
-//     background-color: #f1f2f4;
-//   }
-// `;
-
-// const ToolbarSectionMeta = styled.div`
-//   ${styles.toolbarSection};
-//   border-left-width: 1px;
-//   padding: 0 7px;
-// `;
-
 const ToolbarDropdown = styled(Dropdown)`
   ${styles.buttonMargin};
 
@@ -141,30 +86,6 @@ const ToolbarDropdown = styled(Dropdown)`
     color: ${colorsRaw.teal};
   }
 `;
-
-// const BackArrow = styled.div`
-//   color: ${colors.textLead};
-//   font-size: 21px;
-//   font-weight: 600;
-//   margin-right: 16px;
-// `;
-
-// const BackCollection = styled.div`
-//   color: ${colors.textLead};
-//   font-size: 14px;
-// `;
-
-// const BackStatus = styled.div`
-//   margin-top: 6px;
-// `;
-
-// const BackStatusUnchanged = styled(BackStatus)`
-//   ${components.textBadgeSuccess};
-// `;
-
-// const BackStatusChanged = styled(BackStatus)`
-//   ${components.textBadgeDanger};
-// `;
 
 const ToolbarButton = styled.button`
   ${buttons.button};
@@ -182,21 +103,6 @@ const DeleteButton = styled(ToolbarButton)`
   ${buttons.lightRed};
 `;
 
-// const SaveButton = styled(ToolbarButton)`
-//   ${buttons.lightBlue};
-//   &[disabled] {
-//     ${buttons.disabled};
-//   }
-// `;
-
-const PublishedToolbarButton = styled(DropdownButton)`
-  ${styles.publishedButton}
-`;
-
-const PublishedButton = styled(ToolbarButton)`
-  ${styles.publishedButton}
-`;
-
 const PublishButton = styled(DropdownButton)`
   background-color: ${colorsRaw.teal};
 `;
@@ -205,36 +111,6 @@ const StatusButton = styled(DropdownButton)`
   background-color: ${colorsRaw.tealLight};
   color: ${colorsRaw.teal};
 `;
-
-// const PreviewButtonContainer = styled.div`
-//   margin-right: 12px;
-//   color: ${colorsRaw.blue};
-//   display: flex;
-//   align-items: center;
-
-//   a,
-//   ${Icon} {
-//     color: ${colorsRaw.blue};
-//   }
-
-//   ${Icon} {
-//     position: relative;
-//     top: 1px;
-//   }
-// `;
-
-// const RefreshPreviewButton = styled.button`
-//   background: none;
-//   border: 0;
-//   cursor: pointer;
-//   color: ${colorsRaw.blue};
-
-//   span {
-//     margin-right: 6px;
-//   }
-// `;
-
-// const PreviewLink = RefreshPreviewButton.withComponent('a');
 
 const StatusDropdownItem = styled(DropdownItem)`
   ${Icon} {
@@ -253,24 +129,11 @@ export class EditorToolbar extends React.Component {
     onPersistAndDuplicate: PropTypes.func.isRequired,
     showDelete: PropTypes.bool.isRequired,
     unPublish: PropTypes.func.isRequired,
-    onDuplicate: PropTypes.func.isRequired,
-    onPublishAndNew: PropTypes.func.isRequired,
-    onPublishAndDuplicate: PropTypes.func.isRequired,
     user: PropTypes.object,
-    hasChanged: PropTypes.bool,
-    displayUrl: PropTypes.string,
-    collection: ImmutablePropTypes.map.isRequired,
     hasWorkflow: PropTypes.bool,
     useOpenAuthoring: PropTypes.bool,
-    hasUnpublishedChanges: PropTypes.bool,
-    isNewEntry: PropTypes.bool,
-    isModification: PropTypes.bool,
     currentStatus: PropTypes.string,
-    onLogoutClick: PropTypes.func.isRequired,
-    deployPreview: PropTypes.object,
-    loadDeployPreview: PropTypes.func.isRequired,
     t: PropTypes.func.isRequired,
-    editorBackLink: PropTypes.string.isRequired,
   };
 
   handleChangeStatus = newStatusName => {
@@ -309,73 +172,8 @@ export class EditorToolbar extends React.Component {
     }
   }
 
-  // renderSimpleControls = () => {
-  //   const { collection, hasChanged, isNewEntry, showDelete, onDelete, t } = this.props;
-  //   const canCreate = collection.get('create');
-
-  //   return (
-  //     <>
-  //       {!isNewEntry && !hasChanged
-  //         ? this.renderExistingEntrySimplePublishControls({ canCreate })
-  //         : this.renderNewEntrySimplePublishControls({ canCreate })}
-  //       <div>
-  //         {showDelete ? (
-  //           <DeleteButton onClick={onDelete}>{t('editor.editorToolbar.deleteEntry')}</DeleteButton>
-  //         ) : null}
-  //       </div>
-  //     </>
-  //   );
-  // };
-
-  // renderDeployPreviewControls = label => {
-  //   const { deployPreview = {}, loadDeployPreview, t } = this.props;
-  //   const { url, status, isFetching } = deployPreview;
-
-  //   if (!status) {
-  //     return;
-  //   }
-
-  //   const deployPreviewReady = status === 'SUCCESS' && !isFetching;
-  //   return (
-  //     <PreviewButtonContainer>
-  //       {deployPreviewReady ? (
-  //         <PreviewLink rel="noopener noreferrer" target="_blank" href={url}>
-  //           <span>{label}</span>
-  //           <Icon type="new-tab" size="xsmall" />
-  //         </PreviewLink>
-  //       ) : (
-  //         <RefreshPreviewButton onClick={loadDeployPreview}>
-  //           <span>{t('editor.editorToolbar.deployPreviewPendingButtonLabel')}</span>
-  //           <Icon type="refresh" size="xsmall" />
-  //         </RefreshPreviewButton>
-  //       )}
-  //     </PreviewButtonContainer>
-  //   );
-  // };
-
-  renderStatusInfoTooltip = () => {
-    const { t, currentStatus } = this.props;
-
-    const statusToLocaleKey = {
-      [status.get('DRAFT')]: 'statusInfoTooltipDraft',
-      [status.get('PENDING_REVIEW')]: 'statusInfoTooltipInReview',
-    };
-
-    const statusKey = Object.keys(statusToLocaleKey).find(key => key === currentStatus);
-    return (
-      <TooltipContainer>
-        <Tooltip>
-          <Icon type="info-circle" size="small" className="tooltip" />
-        </Tooltip>
-        {statusKey && (
-          <TooltipText>{t(`editor.editorToolbar.${statusToLocaleKey[statusKey]}`)}</TooltipText>
-        )}
-      </TooltipContainer>
-    );
-  };
-
   renderWorkflowStatusControls = () => {
-    const { isUpdatingStatus, currentStatus, t, useOpenAuthoring } = this.props;
+    const { isUpdatingStatus, currentStatus, t, } = this.props;
 
     const statusToTranslation = {
       [status.get('DRAFT')]: t('editor.editorToolbar.draft'),
@@ -404,17 +202,12 @@ export class EditorToolbar extends React.Component {
             onClick={() => this.handleChangeStatus('PENDING_REVIEW')}
             icon={currentStatus === status.get('PENDING_REVIEW') ? 'check' : null}
           />
-          {useOpenAuthoring ? (
-            ''
-          ) : (
-            <StatusDropdownItem
-              label={t('editor.editorToolbar.ready')}
-              onClick={() => this.handleChangeStatus('PENDING_PUBLISH')}
-              icon={currentStatus === status.get('PENDING_PUBLISH') ? 'check' : null}
-            />
-          )}
+          <StatusDropdownItem
+            label={t('editor.editorToolbar.ready')}
+            onClick={() => this.handleChangeStatus('PENDING_PUBLISH')}
+            icon={currentStatus === status.get('PENDING_PUBLISH') ? 'check' : null}
+          />
         </ToolbarDropdown>
-        {useOpenAuthoring && this.renderStatusInfoTooltip()}
       </>
     );
   };
@@ -442,114 +235,6 @@ export class EditorToolbar extends React.Component {
         />
       </ToolbarDropdown>
     )
-  };
-
-  renderExistingEntryWorkflowPublishControls = ({ canCreate, canPublish, canDelete }) => {
-    const { unPublish, onDuplicate, isPersisting, t } = this.props;
-
-    return canPublish || canCreate ? (
-      <ToolbarDropdown
-        dropdownTopOverlap="40px"
-        dropdownWidth="150px"
-        renderButton={() => (
-          <PublishedToolbarButton>
-            {isPersisting
-              ? t('editor.editorToolbar.unpublishing')
-              : t('editor.editorToolbar.published')}
-          </PublishedToolbarButton>
-        )}
-      >
-        {canDelete && canPublish && (
-          <DropdownItem
-            label={t('editor.editorToolbar.unpublish')}
-            icon="arrow"
-            iconDirection="right"
-            onClick={unPublish}
-          />
-        )}
-        {canCreate && (
-          <DropdownItem
-            label={t('editor.editorToolbar.duplicate')}
-            icon="add"
-            onClick={onDuplicate}
-          />
-        )}
-      </ToolbarDropdown>
-    ) : (
-      ''
-    );
-  };
-
-  renderExistingEntrySimplePublishControls = ({ canCreate }) => {
-    const { onDuplicate, t } = this.props;
-    return canCreate ? (
-      <ToolbarDropdown
-        dropdownTopOverlap="40px"
-        dropdownWidth="150px"
-        renderButton={() => (
-          <PublishedToolbarButton>{t('editor.editorToolbar.published')}</PublishedToolbarButton>
-        )}
-      >
-        {
-          <DropdownItem
-            label={t('editor.editorToolbar.duplicate')}
-            icon="add"
-            onClick={onDuplicate}
-          />
-        }
-      </ToolbarDropdown>
-    ) : (
-      <PublishedButton>{t('editor.editorToolbar.published')}</PublishedButton>
-    );
-  };
-
-  renderNewEntrySimplePublishControls = ({ canCreate }) => {
-    const { onPersist, onPersistAndNew, onPersistAndDuplicate, isPersisting, t } = this.props;
-
-    return (
-      <div>
-        <ToolbarDropdown
-          dropdownTopOverlap="40px"
-          dropdownWidth="150px"
-          renderButton={() => (
-            <PublishButton>
-              {isPersisting
-                ? t('editor.editorToolbar.publishing')
-                : t('editor.editorToolbar.publish')}
-            </PublishButton>
-          )}
-        >
-          <DropdownItem
-            label={t('editor.editorToolbar.publishNow')}
-            icon="arrow"
-            iconDirection="right"
-            onClick={onPersist}
-          />
-          {canCreate ? (
-            <>
-              <DropdownItem
-                label={t('editor.editorToolbar.publishAndCreateNew')}
-                icon="add"
-                onClick={onPersistAndNew}
-              />
-              <DropdownItem
-                label={t('editor.editorToolbar.publishAndDuplicate')}
-                icon="add"
-                onClick={onPersistAndDuplicate}
-              />
-            </>
-          ) : null}
-        </ToolbarDropdown>
-      </div>
-    );
-  };
-
-  renderSimpleDeployPreviewControls = () => {
-    const { hasChanged, isNewEntry, t } = this.props;
-
-    if (!isNewEntry && !hasChanged) {
-      return this.renderDeployPreviewControls(t('editor.editorToolbar.deployButtonLabel'));
-    }
   };
 
   renderWorkflowControls = () => {
@@ -581,58 +266,13 @@ export class EditorToolbar extends React.Component {
     ];
   };
 
-  renderWorkflowDeployPreviewControls = () => {
-    const { currentStatus, isNewEntry, t } = this.props;
-
-    if (currentStatus) {
-      return this.renderDeployPreviewControls(t('editor.editorToolbar.deployPreviewButtonLabel'));
-    }
-
-    /**
-     * Publish control for published workflow entry.
-     */
-    if (!isNewEntry) {
-      return this.renderDeployPreviewControls(t('editor.editorToolbar.deployButtonLabel'));
-    }
-  };
-
   render() {
     return (
-      // <ToolbarContainer>
-      //   <ToolbarSectionBackLink to={editorBackLink}>
-      //     <BackArrow>←</BackArrow>
-      //     <div>
-      //       <BackCollection>
-      //         {t('editor.editorToolbar.backCollection', {
-      //           collectionLabel: collection.get('label'),
-      //         })}
-      //       </BackCollection>
-      //       {hasChanged ? (
-      //         <BackStatusChanged>{t('editor.editorToolbar.unsavedChanges')}</BackStatusChanged>
-      //       ) : (
-      //         <BackStatusUnchanged>{t('editor.editorToolbar.changesSaved')}</BackStatusUnchanged>
-      //       )}
-      //     </div>
-      //   </ToolbarSectionBackLink>
       <ToolbarSectionMain>
         <ToolbarSubSectionFirst>
           {this.renderWorkflowControls()}
-          {/* {hasWorkflow ? this.renderWorkflowControls() : this.renderSimpleControls()} */}
         </ToolbarSubSectionFirst>
-        {/* <ToolbarSubSectionLast>
-            {hasWorkflow
-              ? this.renderWorkflowDeployPreviewControls()
-              : this.renderSimpleDeployPreviewControls()}
-          </ToolbarSubSectionLast> */}
       </ToolbarSectionMain>
-      //   <ToolbarSectionMeta>
-      //     <SettingsDropdown
-      //       displayUrl={displayUrl}
-      //       imageUrl={user?.avatar_url}
-      //       onLogoutClick={onLogoutClick}
-      //     />
-      //   </ToolbarSectionMeta>
-      // </ToolbarContainer>
     );
   }
 }
@@ -647,8 +287,8 @@ function mapStateToProps(state) {
 
 const mapDispatchToProps = {
   updateMainStatus,
-  closeMain,
-  publishMain
+  publishMain,
+  closeMain
 };
 
 export default connect(mapStateToProps, mapDispatchToProps)(translate()(EditorToolbar));

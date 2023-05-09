@@ -1183,69 +1183,59 @@ export default class API {
     await this.deleteBranch(branch);
   }
 
-  async prePublishUnpublishedEntry(
-    pullRequest: GitHubPull,
-    mainPullRequest?: GitHubPull,
-    options?: { slug?: string; publishMain?: boolean },
+  async publishUnpublishedEntryMain(
+    collectionName: string,
+    slug: string,
+    options: { mainCommitMessage: string, publishMain?: boolean },
   ) {
-    if (!this.main) return;
+    if (!this.main) return this.publishUnpublishedEntry(collectionName, slug);
 
-    const { publishMain } = options || {};
+    const {  publishMain, mainCommitMessage } = options;
 
-    if (publishMain && !mainPullRequest) {
-      await this.updatePR(pullRequest.number, { base: this.main });
-      await this.removeBranchToMain();
-    }
-  }
-
-  async postPublishUnpublishedEntry(
-    pullRequest: GitHubPull,
-    mainPullRequest?: GitHubPull,
-    options?: { slug?: string; publishMain?: boolean },
-  ) {
-    if (!this.main) return;
-
-    const { slug = '', publishMain } = options || {};
-
-    if (!publishMain) {
-      if (!mainPullRequest) await this.createMainPR();
-      return this.updateMainStatus(this.initialWorkflowStatus);
-    }
-
-    if (mainPullRequest) {
-      const mainDiffs = await this.getDifferences(
-        mainPullRequest.base.ref,
-        mainPullRequest.head.ref,
-      );
-      const hasOnlyOneFile = mainDiffs.files.length === 1;
-      const hasOnlyCurrentChange = hasOnlyOneFile && mainDiffs.files[0].filename.includes(slug);
-      if (hasOnlyCurrentChange) {
-        await this.publishMain();
-      } else {
-        const lastCommit = mainDiffs.commits[mainDiffs.commits.length - 1];
-        const mainPullRequestMerge = await this.createMainPR(
-          pullRequest.title,
-          lastCommit.sha,
-        );
-        await this.mergePR(mainPullRequestMerge);
-        await this.deleteBranch(mainPullRequestMerge.head.ref);
-      }
-    }
-  }
-
-  async publishUnpublishedEntry(collectionName: string, slug: string, publishMain?: boolean) {
     const contentKey = this.generateContentKey(collectionName, slug);
     const branch = branchFromContentKey(contentKey);
 
     const pullRequest = await this.getBranchPullRequest(branch);
     const mainPullRequest = await this.getMainPullRequest();
 
-    await this.prePublishUnpublishedEntry(pullRequest, mainPullRequest, { slug, publishMain });
+    if (publishMain) {
+      if (mainPullRequest) {
+        const mainDiffs = await this.getDifferences(
+          mainPullRequest.base.ref,
+          mainPullRequest.head.ref,
+        );
+        const hasOnlyOneFile = mainDiffs.files.length === 1;
+        const hasOnlyCurrentFile = hasOnlyOneFile && mainDiffs.files[0].filename.includes(slug);
+        if (hasOnlyCurrentFile) {
+          await this.mergeAndCleanPR(pullRequest, { force: true });
+          await this.publishMain();
+        } else {
+          const mainPullRequestMerge = await this.createMainPR(
+            mainCommitMessage,
+            pullRequest.head.ref,
+          );
+          await this.mergeAndCleanPR(mainPullRequestMerge);
+          await this.mergeAndCleanPR(pullRequest, { force: true });
+        }
+      } else {
+        await this.updatePR(pullRequest.number, { base: this.main });
+        await this.removeBranchToMain();
+      }
+    } else {
+      await this.mergeAndCleanPR(pullRequest, { force: true });
 
-    await this.mergePR(pullRequest, { force: true });
-    await this.deleteBranch(pullRequest.head.ref);
+      if (!mainPullRequest) await this.createMainPR(mainCommitMessage);
+      await this.updateMainStatus(this.initialWorkflowStatus);
+    }
+  }
 
-    await this.postPublishUnpublishedEntry(pullRequest, mainPullRequest, { slug, publishMain });
+  async publishUnpublishedEntry(collectionName: string, slug: string) {
+    const contentKey = this.generateContentKey(collectionName, slug);
+    const branch = branchFromContentKey(contentKey);
+
+    const pullRequest = await this.getBranchPullRequest(branch);
+
+    await this.mergeAndCleanPR(pullRequest);
   }
 
   async createRef(type: string, name: string, sha: string) {
@@ -1443,16 +1433,16 @@ export default class API {
     return result;
   }
 
-  async mergePR(pullrequest: GitHubPull, { force }: { force?: boolean } = {}) {
+  async mergePR(pullRequest: GitHubPull, { force }: { force?: boolean } = {}) {
     console.log('%c Merging PR', 'line-height: 30px;text-align: center;font-weight: bold');
     try {
       const result: Octokit.PullsMergeResponse = await this.request(
-        `${this.originRepoURL}/pulls/${pullrequest.number}/merge`,
+        `${this.originRepoURL}/pulls/${pullRequest.number}/merge`,
         {
           method: 'PUT',
           body: JSON.stringify({
             commit_message: MERGE_COMMIT_MESSAGE,
-            sha: pullrequest.head.sha,
+            sha: pullRequest.head.sha,
             merge_method: this.mergeMethod,
           }),
         },
@@ -1460,7 +1450,7 @@ export default class API {
       return result;
     } catch (error) {
       if (error instanceof APIError && error.status === 405) {
-        if (force) return this.forceMergePR(pullrequest);
+        if (force) return this.forceMergePR(pullRequest);
         else throw error;
       } else {
         throw error;
@@ -1484,6 +1474,11 @@ export default class API {
       .then(branchData => this.updateTree(branchData.commit.sha, files))
       .then(changeTree => this.commit(commitMessage, changeTree))
       .then(response => this.patchBranch(this.branch, response.sha));
+  }
+
+  async mergeAndCleanPR(pullRequest: GitHubPull, options: { force?: boolean } = {}) {
+    await this.mergePR(pullRequest, options);
+    await this.deleteBranch(pullRequest.head.ref);
   }
 
   toBase64(str: string) {
@@ -1703,11 +1698,11 @@ export default class API {
     this.useMain = true;
   }
 
-  async createMainPR(title?: string, head?: string) {
+  async createMainPR(title: string, head?: string) {
     const result: Octokit.PullsCreateResponse = await this.request(`${this.originRepoURL}/pulls`, {
       method: 'POST',
       body: JSON.stringify({
-        title: title || DEFAULT_PR_BODY,
+        title,
         body: DEFAULT_PR_BODY,
         head: head || this.branch,
         base: this.main,

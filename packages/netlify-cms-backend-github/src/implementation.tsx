@@ -729,11 +729,20 @@ export default class GitHub implements Implementation {
     );
   }
 
-  publishUnpublishedEntry(collection: string, slug: string, publishMain?: boolean) {
+  publishUnpublishedEntryMain(collection: string, slug: string, options: { mainCommitMessage: string, publishMain?: boolean }) {
+    // publishUnpublishedEntryMain is a transactional operation
+    return runWithLock(
+      this.lock,
+      () => this.api!.publishUnpublishedEntryMain(collection, slug, options),
+      'Failed to acquire publish entry lock',
+    );
+  }
+
+  publishUnpublishedEntry(collection: string, slug: string) {
     // publishUnpublishedEntry is a transactional operation
     return runWithLock(
       this.lock,
-      () => this.api!.publishUnpublishedEntry(collection, slug, publishMain),
+      () => this.api!.publishUnpublishedEntry(collection, slug),
       'Failed to acquire publish entry lock',
     );
   }

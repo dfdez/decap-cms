@@ -1271,7 +1271,28 @@ export class Backend {
     const slug = entry.get('slug');
 
     await this.invokePrePublishEvent(entry);
-    await this.implementation.publishUnpublishedEntry!(collection, slug, publishMain);
+
+    const config = this.config;
+    if (config.backend.main) {
+      const user = (await this.currentUser()) as User;
+      const mainCommitMessage = commitMessageFormatter(
+        'main',
+        config,
+        {
+          main: config.backend.main,
+          authorLogin: user.login,
+          authorName: user.name,
+        },
+        user.useOpenAuthoring,
+      );
+      await this.implementation.publishUnpublishedEntryMain!(collection, slug, {
+        mainCommitMessage,
+        publishMain,
+      });
+    } else {
+      await this.implementation.publishUnpublishedEntry!(collection, slug);
+    }
+
     await this.invokePostPublishEvent(entry);
   }
 
