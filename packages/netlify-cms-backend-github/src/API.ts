@@ -1219,6 +1219,7 @@ export default class API {
         }
       } else {
         await this.updatePR(pullRequest.number, { base: this.main });
+        await this.mergeAndCleanPR(pullRequest);
         await this.removeBranchToMain();
       }
     } else {
