@@ -357,6 +357,7 @@ export class Editor extends React.Component {
       slug,
       t,
       editorBackLink,
+      canStack,
     } = this.props;
 
     const isPublished = !newEntry && !unpublishedEntry;
@@ -406,6 +407,7 @@ export class Editor extends React.Component {
         deployPreview={deployPreview}
         loadDeployPreview={opts => loadDeployPreview(collection, slug, entry, isPublished, opts)}
         editorBackLink={editorBackLink}
+        canStack={canStack}
         t={t}
       />
     );
@@ -413,7 +415,7 @@ export class Editor extends React.Component {
 }
 
 function mapStateToProps(state, ownProps) {
-  const { collections, entryDraft, auth, config, entries, globalUI } = state;
+  const { collections, entryDraft, auth, config, entries, globalUI, main } = state;
   const slug = ownProps.match.params[0];
   const collection = collections.get(ownProps.match.params.name);
   const collectionName = collection.get('name');
@@ -445,6 +447,8 @@ function mapStateToProps(state, ownProps) {
     }
   }
 
+  const canStack = main.canStack;
+
   return {
     collection,
     collections,
@@ -467,6 +471,7 @@ function mapStateToProps(state, ownProps) {
     publishedEntry,
     unPublishedEntry,
     editorBackLink,
+    canStack,
   };
 }
 

@@ -231,6 +231,7 @@ class EditorInterface extends Component {
       deployPreview,
       draftKey,
       editorBackLink,
+      canStack,
       t,
     } = this.props;
 
@@ -354,6 +355,7 @@ class EditorInterface extends Component {
           loadDeployPreview={loadDeployPreview}
           deployPreview={deployPreview}
           editorBackLink={editorBackLink}
+          canStack={canStack}
         />
         <Editor key={draftKey}>
           <ViewControls>
@@ -428,6 +430,7 @@ EditorInterface.propTypes = {
   deployPreview: PropTypes.object,
   loadDeployPreview: PropTypes.func.isRequired,
   draftKey: PropTypes.string.isRequired,
+  canStack: PropTypes.string.isRequired,
   t: PropTypes.func.isRequired,
 };
 

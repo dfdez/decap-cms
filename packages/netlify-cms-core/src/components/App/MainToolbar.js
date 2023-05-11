@@ -38,27 +38,6 @@ const styles = {
   `,
 };
 
-const TooltipText = styled.div`
-  visibility: hidden;
-  width: 321px;
-  background-color: #555;
-  color: #fff;
-  text-align: unset;
-  border-radius: 6px;
-  padding: 5px;
-
-  /* Position the tooltip text */
-  position: absolute;
-  z-index: 1;
-  top: 145%;
-  left: 50%;
-  margin-left: -320px;
-
-  /* Fade in tooltip */
-  opacity: 0;
-  transition: opacity 0.3s;
-`;
-
 const DropdownButton = styled(StyledDropdownButton)`
   ${styles.noOverflow}
   @media (max-width: 1200px) {
@@ -130,7 +109,6 @@ export class EditorToolbar extends React.Component {
     showDelete: PropTypes.bool.isRequired,
     unPublish: PropTypes.func.isRequired,
     user: PropTypes.object,
-    hasWorkflow: PropTypes.bool,
     useOpenAuthoring: PropTypes.bool,
     currentStatus: PropTypes.string,
     t: PropTypes.func.isRequired,

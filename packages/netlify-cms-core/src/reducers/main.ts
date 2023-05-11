@@ -16,6 +16,7 @@ import type { MainStatusAction } from '../actions/main';
 
 export type MainStatus = {
   isFetching: boolean;
+  canStack: boolean;
   status: {
     status?: string;
     updatedAt?: string;
@@ -25,6 +26,7 @@ export type MainStatus = {
 
 const defaultState: MainStatus = {
   isFetching: false,
+  canStack: false,
   status: {},
   error: undefined,
 };
@@ -36,10 +38,12 @@ const status = produce((state: MainStatus, action: MainStatusAction) => {
       break;
     case STATUS_MAIN_SUCCESS:
       state.isFetching = false;
+      state.canStack = true;
       state.status = action.payload.status;
       break;
     case STATUS_MAIN_FAILURE:
       state.isFetching = false;
+      state.canStack = false;
       state.error = action.payload.error;
       break;
     case PUBLISH_MAIN_REQUEST:

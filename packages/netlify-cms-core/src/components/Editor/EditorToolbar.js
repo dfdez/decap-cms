@@ -401,7 +401,7 @@ export class EditorToolbar extends React.Component {
   };
 
   renderNewEntryWorkflowPublishControls = ({ canPublish }) => {
-    const { isPublishing, onPublish, onPublishMain, t } = this.props;
+    const { isPublishing, onPublish, onPublishMain, canStack, t } = this.props;
 
     return canPublish ? (
       <ToolbarDropdown
@@ -421,11 +421,13 @@ export class EditorToolbar extends React.Component {
           iconDirection="right"
           onClick={onPublishMain}
         />
-        <DropdownItem
-          label={t('editor.editorToolbar.stackChange')}
-          icon="add"
-          onClick={onPublish}
-        />
+        {canStack && (
+          <DropdownItem
+            label={t('editor.editorToolbar.stackChange')}
+            icon="add"
+            onClick={onPublish}
+          />
+        )}
         {/* {canCreate ? (
           <>
             <DropdownItem
