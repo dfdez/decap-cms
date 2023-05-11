@@ -19,7 +19,8 @@ import {
 import { connect } from 'react-redux';
 
 import { SettingsDropdown } from '../UI';
-import { checkBackendStatus, checkMainStatus } from '../../actions/main';
+import { checkBackendStatus } from '../../actions/status';
+import { checkMainStatus } from '../../actions/main';
 import MainToolbar from './MainToolbar.js';
 
 const styles = {
@@ -203,12 +204,14 @@ class Header extends React.Component {
             </AppHeaderNavList>
           </nav>
           <AppHeaderActions>
-            <MainToolbar
-              hasWorkflow={hasWorkflow}
-              collection={new Map()}
-              loadDeployPreview={() => { }}
-            >
-            </MainToolbar>
+            {hasWorkflow && (
+              <MainToolbar
+                hasWorkflow={hasWorkflow}
+                collection={new Map()}
+                loadDeployPreview={() => { }}
+              >
+              </MainToolbar>
+            )}
             {/* {createableCollections.size > 0 && (
               <Dropdown
                 renderButton={() => (

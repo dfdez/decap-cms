@@ -16,6 +16,7 @@ import {
   PreviewState,
   parseContentKey,
   branchFromContentKey,
+  isCmsRefSuffix,
   isCMSLabel,
   labelToStatus,
   statusToLabel,
@@ -137,8 +138,15 @@ type MediaFile = {
   path: string;
 };
 
+function withCmsRefSuffix(pr: GitHubPull) {
+  return (isCmsRefSuffix(pr.head.ref));
+}
+
 function withCmsLabel(pr: GitHubPull, cmsLabelPrefix: string) {
-  return pr.labels.some(l => isCMSLabel(l.name, cmsLabelPrefix));
+  return (
+    withCmsRefSuffix(pr) &&
+    pr.labels.some(l => isCMSLabel(l.name, cmsLabelPrefix))
+  );
 }
 
 function withoutCmsLabel(pr: GitHubPull, cmsLabelPrefix: string) {
@@ -171,8 +179,6 @@ export type Diff = {
   sha: string;
   binary: boolean;
 };
-
-let migrationNotified = false;
 
 export default class API {
   apiRoot: string;
@@ -858,25 +864,6 @@ export default class API {
       );
       branches = branchesWithFilter.filter(b => b.filter).map(b => b.branch);
     } else {
-      // backwards compatibility code, get relevant pull requests and migrate them
-      const pullRequests = await this.getPullRequests(
-        undefined,
-        PullRequestState.Open,
-        pr => !pr.head.repo.fork && withoutCmsLabel(pr, this.cmsLabelPrefix),
-      );
-      let prCount = 0;
-      for (const pr of pullRequests) {
-        if (!migrationNotified) {
-          migrationNotified = true;
-          alert(oneLine`
-            Netlify CMS is adding labels to ${pullRequests.length} of your Editorial Workflow
-            entries. The "Workflow" tab will be unavailable during this migration. You may use other
-            areas of the CMS during this time. Note that closing the CMS will pause the migration.
-          `);
-        }
-        prCount = prCount + 1;
-        await this.migratePullRequest(pr, `${prCount} of ${pullRequests.length}`);
-      }
       const cmsPullRequests = await this.getPullRequests(undefined, PullRequestState.Open, pr =>
         withCmsLabel(pr, this.cmsLabelPrefix),
       );
@@ -1190,7 +1177,7 @@ export default class API {
   ) {
     if (!this.main) return this.publishUnpublishedEntry(collectionName, slug);
 
-    const {  publishMain, mainCommitMessage } = options;
+    const { publishMain, mainCommitMessage } = options;
 
     const contentKey = this.generateContentKey(collectionName, slug);
     const branch = branchFromContentKey(contentKey);
