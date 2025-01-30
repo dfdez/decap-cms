@@ -1,5 +1,5 @@
 import { Map, List, fromJS } from 'immutable';
-import uuid from 'uuid/v4';
+import { v4 as uuid } from 'uuid';
 import { get } from 'lodash';
 import { join } from 'path';
 
@@ -129,7 +129,8 @@ function entryDraftReducer(state = Map(), action) {
       }
 
     case DRAFT_CLEAR_ERRORS: {
-      return state.set('fieldsErrors', Map());
+      const { uniqueFieldId } = action.payload;
+      return state.deleteIn(['fieldsErrors', uniqueFieldId]);
     }
 
     case ENTRY_PERSIST_REQUEST:

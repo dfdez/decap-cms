@@ -9,6 +9,7 @@ declare module 'decap-cms-core' {
     | 'git-gateway'
     | 'github'
     | 'gitlab'
+    | 'gitea'
     | 'bitbucket'
     | 'test-repo'
     | 'proxy';
@@ -36,19 +37,11 @@ declare module 'decap-cms-core' {
     value: any;
   }
 
-  export type CmsCollectionFormatType =
-    | 'yml'
-    | 'yaml'
-    | 'toml'
-    | 'json'
-    | 'frontmatter'
-    | 'yaml-frontmatter'
-    | 'toml-frontmatter'
-    | 'json-frontmatter';
+  export type CmsCollectionFormatType = string;
 
   export type CmsAuthScope = 'repo' | 'public_repo';
 
-  export type CmsPublishMode = 'simple' | 'editorial_workflow';
+  export type CmsPublishMode = 'simple' | 'editorial_workflow' | '';
 
   export type CmsSlugEncoding = 'unicode' | 'ascii';
 
@@ -416,21 +409,34 @@ declare module 'decap-cms-core' {
     config: CmsConfig;
   }
 
-  export interface EditorComponentField {
-    name: string;
-    label: string;
-    widget: string;
-  }
+  export type EditorComponentField =
+    | ({
+        name: string;
+        label: string;
+      } & {
+        widget: Omit<string, 'list'>;
+      })
+    | {
+        widget: 'list';
+        /**
+         * Used if widget === "list" to create a flat array
+         */
+        field?: EditorComponentField;
+        /**
+         * Used if widget === "list" to create an array of objects
+         */
+        fields?: EditorComponentField[];
+      };
 
   export interface EditorComponentOptions {
     id: string;
     label: string;
-    fields: EditorComponentField[];
+    fields?: EditorComponentField[];
     pattern: RegExp;
     allow_add?: boolean;
     fromBlock: (match: RegExpMatchArray) => any;
     toBlock: (data: any) => string;
-    toPreview: (data: any) => string;
+    toPreview: (data: any) => string | JSX.Element;
   }
 
   export interface PreviewStyleOptions {
@@ -501,6 +507,11 @@ declare module 'decap-cms-core' {
 
   export type CmsLocalePhrases = any; // TODO: type properly
 
+  export type Formatter = {
+    fromFile(content: string): unknown;
+    toFile(data: object, sortedKeys?: string[], comments?: Record<string, string>): string;
+  };
+
   export interface CmsRegistry {
     backends: {
       [name: string]: CmsRegistryBackend;
@@ -520,6 +531,9 @@ declare module 'decap-cms-core' {
     locales: {
       [name: string]: CmsLocalePhrases;
     };
+    formats: {
+      [name: string]: Formatter;
+    };
   }
 
   type GetAssetFunction = (asset: string) => {
@@ -532,6 +546,7 @@ declare module 'decap-cms-core' {
   export type PreviewTemplateComponentProps = {
     entry: Map<string, any>;
     collection: Map<string, any>;
+    getCollection: (collectionName: string, slug?: string) => Promise<Map<string, any>[]>;
     widgetFor: (name: any, fields?: any, values?: any, fieldsMetaData?: any) => JSX.Element | null;
     widgetsFor: (name: any) => any;
     getAsset: GetAssetFunction;
@@ -579,6 +594,7 @@ declare module 'decap-cms-core' {
       serializer: CmsWidgetValueSerializer,
     ) => void;
     resolveWidget: (name: string) => CmsWidget | undefined;
+    registerCustomFormat: (name: string, extension: string, formatter: Formatter) => void;
   }
 
   export const DecapCmsCore: CMS;

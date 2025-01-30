@@ -1,7 +1,7 @@
 import React from 'react';
 import PropTypes from 'prop-types';
 import ImmutablePropTypes from 'react-immutable-proptypes';
-import { ClassNames } from '@emotion/core';
+import { ClassNames } from '@emotion/react';
 import { List, Map } from 'immutable';
 import { colors, lengths, ObjectWidgetTopBar } from 'decap-cms-ui-default';
 import { stringTemplate } from 'decap-cms-lib-widgets';
@@ -22,7 +22,14 @@ const styleStrings = {
 };
 
 export default class ObjectControl extends React.Component {
-  componentValidate = {};
+  childRefs = {};
+
+  processControlRef = ref => {
+    if (!ref) return;
+    const name = ref.props.field.get('name');
+    this.childRefs[name] = ref;
+    this.props.controlRef?.(ref);
+  };
 
   static propTypes = {
     onChangeObject: PropTypes.func.isRequired,
@@ -40,6 +47,7 @@ export default class ObjectControl extends React.Component {
     hasError: PropTypes.bool,
     t: PropTypes.func,
     locale: PropTypes.string,
+    collapsed: PropTypes.bool,
   };
 
   static defaultProps = {
@@ -69,7 +77,14 @@ export default class ObjectControl extends React.Component {
     fields = List.isList(fields) ? fields : List([fields]);
     fields.forEach(field => {
       if (field.get('widget') === 'hidden') return;
-      this.componentValidate[field.get('name')]();
+      const name = field.get('name');
+      const control = this.childRefs[name];
+
+      if (control?.innerWrappedControl?.validate) {
+        control.innerWrappedControl.validate();
+      } else {
+        control?.validate?.();
+      }
     });
   };
 
@@ -82,11 +97,12 @@ export default class ObjectControl extends React.Component {
       metadata,
       fieldsErrors,
       editorControl: EditorControl,
-      controlRef,
       parentIds,
       isFieldDuplicate,
       isFieldHidden,
       locale,
+      collapsed,
+      forID,
     } = this.props;
 
     if (field.get('widget') === 'hidden') {
@@ -108,14 +124,14 @@ export default class ObjectControl extends React.Component {
         fieldsMetaData={metadata}
         fieldsErrors={fieldsErrors}
         onValidate={onValidateObject}
-        processControlRef={controlRef && controlRef.bind(this)}
-        controlRef={controlRef}
-        parentIds={parentIds}
+        controlRef={this.processControlRef}
+        parentIds={[...parentIds, forID]}
         isDisabled={isDuplicate}
         isHidden={isHidden}
         isFieldDuplicate={isFieldDuplicate}
         isFieldHidden={isFieldHidden}
         locale={locale}
+        isParentListCollapsed={collapsed}
       />
     );
   }
@@ -123,6 +139,26 @@ export default class ObjectControl extends React.Component {
   handleCollapseToggle = () => {
     this.setState({ collapsed: !this.state.collapsed });
   };
+
+  focus(path) {
+    if (this.state.collapsed) {
+      this.setState({ collapsed: false }, () => {
+        if (path) {
+          const [fieldName, ...remainingPath] = path.split('.');
+          const field = this.childRefs[fieldName];
+          if (field?.focus) {
+            field.focus(remainingPath.join('.'));
+          }
+        }
+      });
+    } else if (path) {
+      const [fieldName, ...remainingPath] = path.split('.');
+      const field = this.childRefs[fieldName];
+      if (field?.focus) {
+        field.focus(remainingPath.join('.'));
+      }
+    }
+  }
 
   renderFields = (multiFields, singleField) => {
     if (multiFields) {

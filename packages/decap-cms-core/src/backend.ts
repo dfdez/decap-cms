@@ -24,7 +24,7 @@ import {
   selectAllowNewEntries,
   selectAllowDeletion,
   selectFolderEntryExtension,
-  selectInferedField,
+  selectInferredField,
   selectMediaFolders,
   selectFieldsComments,
   selectHasMetaPath,
@@ -46,8 +46,11 @@ import {
   getI18nDataFiles,
   getI18nBackup,
   formatI18nBackup,
+  getI18nInfo,
+  I18N_STRUCTURE,
 } from './lib/i18n';
 
+import type { I18nInfo } from './lib/i18n';
 import type AssetProxy from './valueObjects/AssetProxy';
 import type {
   CmsConfig,
@@ -307,6 +310,35 @@ function collectionDepth(collection: Collection) {
   return depth;
 }
 
+function i18nRulestring(ruleString: string, { defaultLocale, structure }: I18nInfo): string {
+  if (structure === I18N_STRUCTURE.MULTIPLE_FOLDERS) {
+    return `${defaultLocale}\\/${ruleString}`;
+  }
+
+  if (structure === I18N_STRUCTURE.MULTIPLE_FILES) {
+    return `${ruleString}\\.${defaultLocale}\\..*`;
+  }
+
+  return ruleString;
+}
+
+function collectionRegex(collection: Collection): RegExp | undefined {
+  let ruleString = '';
+
+  if (collection.get('path')) {
+    ruleString = `${collection.get('folder')}/${collection.get('path')}`.replace(
+      /{{.*}}/gm,
+      '(.*)',
+    );
+  }
+
+  if (hasI18n(collection)) {
+    ruleString = i18nRulestring(ruleString, getI18nInfo(collection) as I18nInfo);
+  }
+
+  return ruleString ? new RegExp(ruleString) : undefined;
+}
+
 export class Backend {
   implementation: Implementation;
   backendName: string;
@@ -552,7 +584,12 @@ export class Backend {
       const depth = collectionDepth(collection);
       const extension = selectFolderEntryExtension(collection);
       return this.implementation
-        .allEntriesByFolder(collection.get('folder') as string, extension, depth)
+        .allEntriesByFolder(
+          collection.get('folder') as string,
+          extension,
+          depth,
+          collectionRegex(collection),
+        )
         .then(entries => this.processEntries(entries, collection));
     }
 
@@ -590,12 +627,12 @@ export class Backend {
           });
         } else {
           searchFields = [
-            selectInferedField(collection, 'title'),
-            selectInferedField(collection, 'shortTitle'),
-            selectInferedField(collection, 'author'),
+            selectInferredField(collection, 'title'),
+            selectInferredField(collection, 'shortTitle'),
+            selectInferredField(collection, 'author'),
             ...summaryFields.map(elem => {
               if (dateParsers[elem]) {
-                return selectInferedField(collection, 'date');
+                return selectInferredField(collection, 'date');
               }
               return elem;
             }),
@@ -619,7 +656,7 @@ export class Backend {
     if (errors.length > 0) {
       // eslint-disable-next-line @typescript-eslint/ban-ts-comment
       // @ts-ignore
-      throw new Error({ message: 'Errors ocurred while searching entries locally!', errors });
+      throw new Error({ message: 'Errors occurred while searching entries locally!', errors });
     }
 
     const hits = entries
@@ -1054,8 +1091,14 @@ export class Backend {
     unpublished = false,
     status,
   }: PersistArgs) {
-    const modifiedData = await this.invokePreSaveEvent(draft.get('entry'));
-    const entryDraft = (modifiedData && draft.setIn(['entry', 'data'], modifiedData)) || draft;
+    const updatedEntity = await this.invokePreSaveEvent(draft.get('entry'));
+
+    let entryDraft;
+    if (updatedEntity.get('data') === undefined) {
+      entryDraft = (updatedEntity && draft.setIn(['entry', 'data'], updatedEntity)) || draft;
+    } else {
+      entryDraft = (updatedEntity && draft.setIn(['entry'], updatedEntity)) || draft;
+    }
 
     const newEntry = entryDraft.getIn(['entry', 'newRecord']) || false;
 
@@ -1276,7 +1319,12 @@ export class Backend {
     const format = resolveFormat(collection, entry.toJS());
     const fieldsOrder = this.fieldsOrder(collection, entry);
     const fieldsComments = selectFieldsComments(collection, entry);
-    return format && format.toFile(entry.get('data').toJS(), fieldsOrder, fieldsComments);
+    let content = format.toFile(entry.get('data').toJS(), fieldsOrder, fieldsComments);
+    if (content.slice(-1) != '\n') {
+      // add the EOL if it does not exist.
+      content += '\n';
+    }
+    return content;
   }
 
   fieldsOrder(collection: Collection, entry: EntryMap) {

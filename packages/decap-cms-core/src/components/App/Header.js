@@ -2,7 +2,7 @@ import PropTypes from 'prop-types';
 import React from 'react';
 import ImmutablePropTypes from 'react-immutable-proptypes';
 import styled from '@emotion/styled';
-import { css } from '@emotion/core';
+import { css } from '@emotion/react';
 import { translate } from 'react-polyglot';
 import { NavLink } from 'react-router-dom';
 import {
@@ -71,7 +71,7 @@ const AppHeaderButton = styled.button`
 
   &:hover,
   &:active,
-  &:focus {
+  &:focus-visible {
     ${styles.buttonActive};
 
     ${Icon} {
@@ -160,7 +160,7 @@ class Header extends React.Component {
       showMediaButton,
     } = this.props;
 
-    const createableCollections = collections
+    const creatableCollections = collections
       .filter(collection => collection.get('create'))
       .toList();
 
@@ -198,7 +198,7 @@ class Header extends React.Component {
             </AppHeaderNavList>
           </nav>
           <AppHeaderActions>
-            {createableCollections.size > 0 && (
+            {creatableCollections.size > 0 && (
               <Dropdown
                 renderButton={() => (
                   <AppHeaderQuickNewButton> {t('app.header.quickAdd')}</AppHeaderQuickNewButton>
@@ -207,7 +207,7 @@ class Header extends React.Component {
                 dropdownWidth="160px"
                 dropdownPosition="left"
               >
-                {createableCollections.map(collection => (
+                {creatableCollections.map(collection => (
                   <DropdownItem
                     key={collection.get('name')}
                     label={collection.get('label_singular') || collection.get('label')}

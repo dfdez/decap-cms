@@ -17,6 +17,7 @@ export type CmsBackendType =
   | 'git-gateway'
   | 'github'
   | 'gitlab'
+  | 'gitea'
   | 'bitbucket'
   | 'test-repo'
   | 'proxy';
@@ -599,7 +600,7 @@ type i18n = StaticallyTypedRecord<{
   default_locale: string;
 }>;
 
-export type Format = keyof typeof formatExtensions;
+export type Format = keyof typeof formatExtensions | string;
 
 type CollectionObject = {
   name: string;

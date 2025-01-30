@@ -8,7 +8,18 @@ import { fromJS, List, Map } from 'immutable';
 import { reactSelectStyles } from 'decap-cms-ui-default';
 import { stringTemplate, validations } from 'decap-cms-lib-widgets';
 import { FixedSizeList } from 'react-window';
-import { SortableContainer, SortableElement, SortableHandle } from 'react-sortable-hoc';
+import {
+  DndContext,
+  MouseSensor,
+  TouchSensor,
+  closestCenter,
+  useSensor,
+  useSensors,
+} from '@dnd-kit/core';
+import { SortableContext, horizontalListSortingStrategy, useSortable } from '@dnd-kit/sortable';
+import { restrictToParentElement } from '@dnd-kit/modifiers';
+import { CSS } from '@dnd-kit/utilities';
+import { v4 as uuid } from 'uuid';
 
 function arrayMove(array, from, to) {
   const slicedArray = array.slice();
@@ -16,20 +27,76 @@ function arrayMove(array, from, to) {
   return slicedArray;
 }
 
-const MultiValue = SortableElement(props => {
-  // prevent the menu from being opened/closed when the user clicks on a value to begin dragging it
+function MultiValue(props) {
+  const { setNodeRef, transform, transition } = useSortable({
+    id: props.data.data.id,
+  });
+
   function onMouseDown(e) {
     e.preventDefault();
     e.stopPropagation();
   }
 
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+  };
+
   const innerProps = { ...props.innerProps, onMouseDown };
-  return <components.MultiValue {...props} innerProps={innerProps} />;
-});
+  return (
+    <div ref={setNodeRef} style={style}>
+      <components.MultiValue {...props} innerProps={innerProps} />
+    </div>
+  );
+}
 
-const MultiValueLabel = SortableHandle(props => <components.MultiValueLabel {...props} />);
+function MultiValueLabel(props) {
+  const { attributes, listeners } = useSortable({
+    id: props.data.data.id,
+  });
 
-const SortableSelect = SortableContainer(AsyncSelect);
+  return (
+    <div {...attributes} {...listeners}>
+      <components.MultiValueLabel {...props} />
+    </div>
+  );
+}
+
+function SortableSelect(props) {
+  const { distance, value, onSortEnd, isMulti } = props;
+
+  if (!isMulti) {
+    return <AsyncSelect {...props} />;
+  }
+
+  const keys = Array.isArray(value) ? value.map(({ data }) => data.id) : [];
+
+  const activationConstraint = { distance };
+  const sensors = useSensors(
+    useSensor(MouseSensor, { activationConstraint }),
+    useSensor(TouchSensor, { activationConstraint }),
+  );
+
+  function handleSortEnd({ active, over }) {
+    onSortEnd({
+      oldIndex: keys.indexOf(active.id),
+      newIndex: keys.indexOf(over.id),
+    });
+  }
+
+  return (
+    <DndContext
+      modifiers={[restrictToParentElement]}
+      collisionDetection={closestCenter}
+      sensors={sensors}
+      onDragEnd={handleSortEnd}
+    >
+      <SortableContext items={keys} strategy={horizontalListSortingStrategy}>
+        <AsyncSelect {...props} />
+      </SortableContext>
+    </DndContext>
+  );
+}
 
 function Option({ index, style, data }) {
   return <div style={style}>{data.options[index]}</div>;
@@ -80,8 +147,12 @@ function uniqOptions(initial, current) {
   return uniqBy(initial.concat(current), o => o.value);
 }
 
-function getSearchFieldArray(searchFields) {
-  return List.isList(searchFields) ? searchFields.toJS() : [searchFields];
+function getFieldArray(field) {
+  if (!field) {
+    return [];
+  }
+
+  return List.isList(field) ? field.toJS() : [field];
 }
 
 function getSelectedValue({ value, options, isMultiple }) {
@@ -94,11 +165,22 @@ function getSelectedValue({ value, options, isMultiple }) {
     const selected = selectedOptions
       .map(i => options.find(o => o.value === (i.value || i)))
       .filter(Boolean)
-      .map(convertToOption);
+      .map(convertToSortableOption);
     return selected;
   } else {
     return find(options, ['value', value]) || null;
   }
+}
+
+function convertToSortableOption(raw) {
+  const option = convertToOption(raw);
+  return {
+    ...option,
+    data: {
+      ...option.data,
+      id: uuid(),
+    },
+  };
 }
 
 export default class RelationControl extends React.Component {
@@ -160,7 +242,7 @@ export default class RelationControl extends React.Component {
     const initialSearchValues = value && (this.isMultiple() ? getSelectedOptions(value) : [value]);
     if (initialSearchValues && initialSearchValues.length > 0) {
       const metadata = {};
-      const searchFieldsArray = getSearchFieldArray(field.get('search_fields'));
+      const searchFieldsArray = getFieldArray(field.get('search_fields'));
       const { payload } = await query(forID, collection, searchFieldsArray, '', file);
       const hits = payload.hits || [];
       const options = this.parseHitOptions(hits);
@@ -171,16 +253,22 @@ export default class RelationControl extends React.Component {
           return selectedOption;
         })
         .filter(Boolean);
+      const filteredValue = initialOptions.map(option => option.value);
 
       this.mounted && this.setState({ initialOptions });
 
       //set metadata
       this.mounted &&
-        onChange(value, {
-          [field.get('name')]: {
-            [field.get('collection')]: metadata,
+        onChange(
+          filteredValue.length === 1 && !this.isMultiple()
+            ? filteredValue[0]
+            : fromJS(filteredValue),
+          {
+            [field.get('name')]: {
+              [field.get('collection')]: metadata,
+            },
           },
-        });
+        );
     }
   }
 
@@ -259,18 +347,36 @@ export default class RelationControl extends React.Component {
     const { field } = this.props;
     const valueField = field.get('value_field');
     const displayField = field.get('display_fields') || List([field.get('value_field')]);
+    const filters = getFieldArray(field.get('filters'));
+
     const options = hits.reduce((acc, hit) => {
-      const valuesPaths = stringTemplate.expandPath({ data: hit.data, path: valueField });
-      for (let i = 0; i < valuesPaths.length; i++) {
-        const label = displayField
-          .toJS()
-          .map(key => {
-            const displayPaths = stringTemplate.expandPath({ data: hit.data, path: key });
-            return this.parseNestedFields(hit, displayPaths[i] || displayPaths[0]);
-          })
-          .join(' ');
-        const value = this.parseNestedFields(hit, valuesPaths[i]);
-        acc.push({ data: hit.data, value, label });
+      if (
+        filters.every(filter => {
+          // check if the value for the (nested) filter field is in the filter values
+          const fieldKeys = filter.field.split('.');
+          let value = hit.data;
+          for (let i = 0; i < fieldKeys.length; i++) {
+            if (Object.prototype.hasOwnProperty.call(value, fieldKeys[i])) {
+              value = value[fieldKeys[i]];
+            } else {
+              return false;
+            }
+          }
+          return filter.values.includes(value);
+        })
+      ) {
+        const valuesPaths = stringTemplate.expandPath({ data: hit.data, path: valueField });
+        for (let i = 0; i < valuesPaths.length; i++) {
+          const label = displayField
+            .toJS()
+            .map(key => {
+              const displayPaths = stringTemplate.expandPath({ data: hit.data, path: key });
+              return this.parseNestedFields(hit, displayPaths[i] || displayPaths[0]);
+            })
+            .join(' ');
+          const value = this.parseNestedFields(hit, valuesPaths[i]);
+          acc.push({ data: hit.data, value, label });
+        }
       }
 
       return acc;
@@ -283,13 +389,13 @@ export default class RelationControl extends React.Component {
     const { field, query, forID } = this.props;
     const collection = field.get('collection');
     const optionsLength = field.get('options_length') || 20;
-    const searchFieldsArray = getSearchFieldArray(field.get('search_fields'));
+    const searchFieldsArray = getFieldArray(field.get('search_fields'));
     const file = field.get('file');
 
-    query(forID, collection, searchFieldsArray, term, file, optionsLength).then(({ payload }) => {
+    query(forID, collection, searchFieldsArray, term, file).then(({ payload }) => {
       const hits = payload.hits || [];
       const options = this.parseHitOptions(hits);
-      const uniq = uniqOptions(this.state.initialOptions, options);
+      const uniq = uniqOptions(this.state.initialOptions, options).slice(0, optionsLength);
       callback(uniq);
     });
   }, 500);
@@ -311,12 +417,8 @@ export default class RelationControl extends React.Component {
     return (
       <SortableSelect
         useDragHandle
-        // react-sortable-hoc props:
-        axis="xy"
         onSortEnd={this.onSortEnd(selectedValue)}
         distance={4}
-        // small fix for https://github.com/clauderic/react-sortable-hoc/pull/352:
-        getHelperDimensions={({ node }) => node.getBoundingClientRect()}
         // react-select props:
         components={{ MenuList, MultiValue, MultiValueLabel }}
         value={selectedValue}

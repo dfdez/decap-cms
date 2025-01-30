@@ -1,6 +1,6 @@
 import React from 'react';
 import PropTypes from 'prop-types';
-import { ClassNames } from '@emotion/core';
+import { ClassNames } from '@emotion/react';
 import olStyles from 'ol/ol.css';
 import Map from 'ol/Map.js';
 import View from 'ol/View.js';
@@ -45,6 +45,7 @@ export default function withMapControl({ getFormat, getMap } = {}) {
     constructor(props) {
       super(props);
       this.mapContainer = React.createRef();
+      this.resizeObserver = null;
     }
 
     componentDidMount() {
@@ -69,6 +70,18 @@ export default function withMapControl({ getFormat, getMap } = {}) {
         featuresSource.clear();
         onChange(format.writeGeometry(feature.getGeometry(), writeOptions));
       });
+
+      this.resizeObserver = new ResizeObserver(() => {
+        map.updateSize();
+      });
+
+      this.resizeObserver.observe(target);
+    }
+
+    componentWillUnmount() {
+      if (this.resizeObserver) {
+        this.resizeObserver.disconnect();
+      }
     }
 
     render() {

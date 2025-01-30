@@ -22,8 +22,10 @@ import { selectCollectionEntriesCursor } from '../../../reducers/cursors';
 import Entries from './Entries';
 
 const GroupHeading = styled.h2`
-  font-size: 23px;
+  font-size: 22px;
   font-weight: 600;
+  line-height: 37px;
+  padding-inline-start: 20px;
   color: ${colors.textLead};
 `;
 
@@ -117,20 +119,19 @@ export class EntriesCollection extends React.Component {
 
 export function filterNestedEntries(path, collectionFolder, entries) {
   const filtered = entries.filter(e => {
-    const entryPath = e.get('path').slice(collectionFolder.length + 1);
+    let entryPath = e.get('path').slice(collectionFolder.length + 1);
     if (!entryPath.startsWith(path)) {
       return false;
     }
 
-    // only show immediate children
+    // for subdirectories, trim off the parent folder corresponding to
+    // this nested collection entry
     if (path) {
-      // non root path
-      const trimmed = entryPath.slice(path.length + 1);
-      return trimmed.split('/').length === 2;
-    } else {
-      // root path
-      return entryPath.split('/').length <= 2;
+      entryPath = entryPath.slice(path.length + 1);
     }
+
+    // only show immediate children
+    return !entryPath.includes('/');
   });
   return filtered;
 }

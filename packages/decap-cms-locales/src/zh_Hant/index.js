@@ -6,6 +6,7 @@ const zh_Hant = {
     loginWithBitbucket: '使用你的 Bitbucket 帳號來進行登入',
     loginWithGitHub: '使用你的 GitHub 帳號來進行登入',
     loginWithGitLab: '使用你的 GitLab 帳號來進行登入',
+    loginWithGitea: '使用你的 Gitea 帳號來進行登入',
     errors: {
       email: '請確認你已經輸入你的電子郵件。',
       password: '請輸入你的密碼。',
@@ -86,6 +87,8 @@ const zh_Hant = {
       },
       i18n: {
         writingInLocale: '以 %{locale} 書寫',
+        copyFromLocale: '用其他語言進行填充',
+        copyFromLocaleConfirm: '你確定要用“%{locale}”進行填充嗎？\n這將會覆蓋所有現有的內容。',
       },
     },
     editor: {
@@ -173,6 +176,10 @@ const zh_Hant = {
       },
       datetime: {
         now: '現在',
+        clear: '清除',
+      },
+      list: {
+        add: '新增%{item}',
       },
     },
   },

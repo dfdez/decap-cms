@@ -1,6 +1,6 @@
 import React from 'react';
 import { List } from 'immutable';
-import { css } from '@emotion/core';
+import { css } from '@emotion/react';
 import styled from '@emotion/styled';
 import { connect } from 'react-redux';
 import { NavLink } from 'react-router-dom';
@@ -48,11 +48,11 @@ const TreeNavLink = styled(NavLink)`
   font-weight: 500;
   align-items: center;
   padding: 8px;
-  padding-left: ${props => props.depth * 20 + 12}px;
+  padding-left: ${props => props.depth * 16 + 18}px;
   border-left: 2px solid #fff;
 
   ${Icon} {
-    margin-right: 8px;
+    margin-right: 4px;
     flex-shrink: 0;
   }
 
@@ -80,7 +80,7 @@ function TreeNode(props) {
 
   const sortedData = sortBy(treeData, getNodeTitle);
   return sortedData.map(node => {
-    const leaf = node.children.length <= 1 && !node.children[0]?.isDir && depth > 0;
+    const leaf = node.children.length === 0 && depth > 0;
     if (leaf) {
       return null;
     }
@@ -90,7 +90,7 @@ function TreeNode(props) {
     }
     const title = getNodeTitle(node);
 
-    const hasChildren = depth === 0 || node.children.some(c => c.children.some(c => c.isDir));
+    const hasChildren = depth === 0 || node.children.some(c => c.isDir);
 
     return (
       <React.Fragment key={node.path}>

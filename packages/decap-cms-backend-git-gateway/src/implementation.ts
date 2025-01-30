@@ -362,7 +362,11 @@ export default class GitGateway implements Implementation {
       if (!(await this.api!.hasWriteAccess())) {
         throw new Error("You don't have sufficient permissions to access Decap CMS");
       }
-      return { name: userData.name, login: userData.email } as User;
+      return {
+        name: userData.name,
+        login: userData.email,
+        avatar_url: userData.avatar_url,
+      } as unknown as User;
     });
   }
   async restoreUser() {
@@ -392,8 +396,8 @@ export default class GitGateway implements Implementation {
   async entriesByFolder(folder: string, extension: string, depth: number) {
     return this.backend!.entriesByFolder(folder, extension, depth);
   }
-  allEntriesByFolder(folder: string, extension: string, depth: number) {
-    return this.backend!.allEntriesByFolder(folder, extension, depth);
+  allEntriesByFolder(folder: string, extension: string, depth: number, pathRegex?: RegExp) {
+    return this.backend!.allEntriesByFolder(folder, extension, depth, pathRegex);
   }
   entriesByFiles(files: ImplementationFile[]) {
     return this.backend!.entriesByFiles(files);

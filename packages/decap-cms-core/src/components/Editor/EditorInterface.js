@@ -1,7 +1,7 @@
 import PropTypes from 'prop-types';
 import React, { Component } from 'react';
 import ImmutablePropTypes from 'react-immutable-proptypes';
-import { css, Global } from '@emotion/core';
+import { css, Global } from '@emotion/react';
 import styled from '@emotion/styled';
 import SplitPane from 'react-split-pane';
 import {
@@ -47,24 +47,29 @@ function ReactSplitPaneGlobalStyles() {
     <Global
       styles={css`
         .Resizer.vertical {
-          width: 21px;
+          width: 2px;
           cursor: col-resize;
           position: relative;
-          transition: background-color ${transitions.main};
+          background: none;
 
           &:before {
             content: '';
             width: 2px;
             height: 100%;
             position: relative;
-            left: 10px;
             background-color: ${colors.textFieldBorder};
             display: block;
+            z-index: 10;
+            transition: background-color ${transitions.main};
           }
 
           &:hover,
           &:active {
-            background-color: ${colorsRaw.GrayLight};
+            &:before {
+              width: 4px;
+              left: -1px;
+              background-color: ${colorsRaw.blue};
+            }
           }
         }
       `}
@@ -155,6 +160,10 @@ class EditorInterface extends Component {
     previewVisible: localStorage.getItem(PREVIEW_VISIBLE) !== 'false',
     scrollSyncEnabled: localStorage.getItem(SCROLL_SYNC_ENABLED) !== 'false',
     i18nVisible: localStorage.getItem(I18N_VISIBLE) !== 'false',
+  };
+
+  handleFieldClick = path => {
+    this.controlPaneRef?.focus(path);
   };
 
   handleSplitPaneDragStart = () => {
@@ -293,6 +302,7 @@ class EditorInterface extends Component {
                 fields={fields}
                 fieldsMetaData={fieldsMetaData}
                 locale={leftPanelLocale}
+                onFieldClick={this.handleFieldClick}
               />
             </PreviewPaneContainer>
           </StyledSplitPane>
@@ -376,7 +386,7 @@ class EditorInterface extends Component {
                 title={t('editor.editorInterface.togglePreview')}
               />
             )}
-            {scrollSyncVisible && (
+            {scrollSyncVisible && !collection.getIn(['editor', 'visualEditing']) && (
               <EditorToggle
                 isActive={scrollSyncEnabled}
                 onClick={this.handleToggleScrollSync}

@@ -6,9 +6,9 @@ import {
   prohibited,
 } from 'ajv-keywords/dist/keywords';
 import ajvErrors from 'ajv-errors';
-import uuid from 'uuid/v4';
+import { v4 as uuid } from 'uuid';
 
-import { formatExtensions, frontmatterFormats, extensionFormatters } from '../formats/formats';
+import { frontmatterFormats, extensionFormatters } from '../formats/formats';
 import { getWidgets } from '../lib/registry';
 import { I18N_STRUCTURE, I18N_FIELD } from '../lib/i18n';
 
@@ -175,7 +175,7 @@ function getConfigSchema() {
       },
       publish_mode: {
         type: 'string',
-        enum: ['simple', 'editorial_workflow'],
+        enum: ['simple', 'editorial_workflow', ''],
         examples: ['editorial_workflow'],
       },
       slug: {
@@ -231,7 +231,7 @@ function getConfigSchema() {
                 preview: { type: 'boolean' },
               },
             },
-            format: { type: 'string', enum: Object.keys(formatExtensions) },
+            format: { type: 'string' },
             extension: { type: 'string' },
             frontmatter_delimiter: {
               type: ['string', 'array'],

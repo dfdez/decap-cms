@@ -2,7 +2,7 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import PropTypes from 'prop-types';
 import ImmutablePropTypes from 'react-immutable-proptypes';
-import { ClassNames, css as coreCss } from '@emotion/core';
+import { ClassNames, css as coreCss } from '@emotion/react';
 import { lengths, fonts, zIndex } from 'decap-cms-ui-default';
 import styled from '@emotion/styled';
 import { createEditor, Transforms, Editor as SlateEditor } from 'slate';
@@ -26,6 +26,7 @@ import { markdownToSlate, slateToMarkdown } from '../serializers';
 import withShortcodes from './plugins/shortcodes/withShortcodes';
 import insertShortcode from './plugins/shortcodes/insertShortcode';
 import defaultEmptyBlock from './plugins/blocks/defaultEmptyBlock';
+import withHtml from './plugins/html/withHtml';
 
 function visualEditorStyles({ minimal }) {
   return `
@@ -97,7 +98,9 @@ function Editor(props) {
 
   const editor = useMemo(
     () =>
-      withReact(withHistory(withShortcodes(withBlocks(withLists(withInlines(createEditor())))))),
+      withHtml(
+        withReact(withHistory(withShortcodes(withBlocks(withLists(withInlines(createEditor())))))),
+      ),
     [],
   );
 
@@ -132,8 +135,9 @@ function Editor(props) {
   useEffect(() => {
     if (props.pendingFocus) {
       ReactEditor.focus(editor);
+      props.pendingFocus();
     }
-  }, []);
+  }, [props.pendingFocus]);
 
   function handleMarkClick(format) {
     ReactEditor.focus(editor);

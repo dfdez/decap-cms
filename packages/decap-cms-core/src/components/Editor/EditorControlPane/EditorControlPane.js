@@ -1,7 +1,7 @@
 import React from 'react';
 import PropTypes from 'prop-types';
 import ImmutablePropTypes from 'react-immutable-proptypes';
-import { css } from '@emotion/core';
+import { css } from '@emotion/react';
 import styled from '@emotion/styled';
 import {
   buttons,
@@ -99,15 +99,17 @@ export default class ControlPane extends React.Component {
     selectedLocale: this.props.locale,
   };
 
-  componentValidate = {};
+  childRefs = {};
 
-  controlRef(field, wrappedControl) {
+  controlRef = (field, wrappedControl) => {
     if (!wrappedControl) return;
     const name = field.get('name');
+    this.childRefs[name] = wrappedControl;
+  };
 
-    this.componentValidate[name] =
-      wrappedControl.innerWrappedControl?.validate || wrappedControl.validate;
-  }
+  getControlRef = field => wrappedControl => {
+    this.controlRef(field, wrappedControl);
+  };
 
   handleLocaleChange = val => {
     this.setState({ selectedLocale: val });
@@ -144,7 +146,7 @@ export default class ControlPane extends React.Component {
             locale: sourceLocale,
             isTranslatable: sourceLocale !== defaultLocale,
           });
-          this.props.onChange(field, copyValue, undefined, i18n);
+          if (copyValue) this.props.onChange(field, copyValue, undefined, i18n);
         }
       });
     };
@@ -152,7 +154,11 @@ export default class ControlPane extends React.Component {
   validate = async () => {
     this.props.fields.forEach(field => {
       if (field.get('widget') === 'hidden') return;
-      this.componentValidate[field.get('name')]();
+      const control = this.childRefs[field.get('name')];
+      const validateFn = control?.innerWrappedControl?.validate ?? control?.validate;
+      if (validateFn) {
+        validateFn();
+      }
     });
   };
 
@@ -164,6 +170,14 @@ export default class ControlPane extends React.Component {
       return Promise.resolve();
     }
   };
+
+  focus(path) {
+    const [fieldName, ...remainingPath] = path.split('.');
+    const control = this.childRefs[fieldName];
+    if (control?.focus) {
+      control.focus(remainingPath.join('.'));
+    }
+  }
 
   render() {
     const { collection, entry, fields, fieldsMetaData, fieldsErrors, onChange, onValidate, t } =
@@ -227,8 +241,7 @@ export default class ControlPane extends React.Component {
                   onChange(field, newValue, newMetadata, i18n);
                 }}
                 onValidate={onValidate}
-                processControlRef={this.controlRef.bind(this)}
-                controlRef={this.controlRef}
+                controlRef={this.getControlRef(field)}
                 entry={entry}
                 collection={collection}
                 isDisabled={isDuplicate}

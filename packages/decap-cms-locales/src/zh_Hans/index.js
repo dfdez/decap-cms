@@ -7,6 +7,7 @@ const zh_Hans = {
     loginWithBitbucket: '使用 Bitbucket 登录',
     loginWithGitHub: '使用 GitHub 登录',
     loginWithGitLab: '使用 GitLab 登录',
+    loginWithGitea: '使用 Gitea 登录',
     errors: {
       email: '请输入电子邮箱',
       password: '请输入密码',
@@ -92,6 +93,8 @@ const zh_Hans = {
       },
       i18n: {
         writingInLocale: '正在使用%{locale}撰写',
+        copyFromLocale: '用其他语言进行填充',
+        copyFromLocaleConfirm: '你确定要用“%{locale}”进行填充吗？\n这将会覆盖所有现有的内容。',
       },
     },
     editor: {
@@ -190,6 +193,10 @@ const zh_Hans = {
       },
       datetime: {
         now: '现在',
+        clear: '清除',
+      },
+      list: {
+        add: '新增%{item}',
       },
     },
   },

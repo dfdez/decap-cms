@@ -2,12 +2,22 @@ import React from 'react';
 import PropTypes from 'prop-types';
 import ImmutablePropTypes from 'react-immutable-proptypes';
 import styled from '@emotion/styled';
-import { css, ClassNames } from '@emotion/core';
+import { css, ClassNames } from '@emotion/react';
 import { List, Map, fromJS } from 'immutable';
 import { partial, isEmpty, uniqueId } from 'lodash';
-import uuid from 'uuid/v4';
-import { SortableContainer, SortableElement, SortableHandle } from 'react-sortable-hoc';
+import { v4 as uuid } from 'uuid';
 import DecapCmsWidgetObject from 'decap-cms-widget-object';
+import {
+  DndContext,
+  MouseSensor,
+  TouchSensor,
+  closestCenter,
+  useSensor,
+  useSensors,
+} from '@dnd-kit/core';
+import { SortableContext, useSortable } from '@dnd-kit/sortable';
+import { restrictToParentElement } from '@dnd-kit/modifiers';
+import { CSS } from '@dnd-kit/utilities';
 import {
   ListItemTopBar,
   ObjectWidgetTopBar,
@@ -27,8 +37,6 @@ import {
 const ObjectControl = DecapCmsWidgetObject.controlComponent;
 
 const ListItem = styled.div();
-
-const SortableListItem = SortableElement(ListItem);
 
 const StyledListItemTopBar = styled(ListItemTopBar)`
   background-color: ${colors.textFieldBorder};
@@ -65,9 +73,69 @@ const styles = {
   `,
 };
 
-const SortableList = SortableContainer(({ items, renderItem }) => {
-  return <div>{items.map(renderItem)}</div>;
-});
+function SortableList({ items, children, onSortEnd, keys }) {
+  const activationConstraint = { distance: 4 };
+  const sensors = useSensors(
+    useSensor(MouseSensor, { activationConstraint }),
+    useSensor(TouchSensor, { activationConstraint }),
+  );
+
+  function handleSortEnd({ active, over }) {
+    onSortEnd({
+      oldIndex: keys.indexOf(active.id),
+      newIndex: keys.indexOf(over.id),
+    });
+  }
+
+  return (
+    <div>
+      <DndContext
+        modifiers={[restrictToParentElement]}
+        collisionDetection={closestCenter}
+        sensors={sensors}
+        onDragEnd={handleSortEnd}
+      >
+        <SortableContext items={items}>{children}</SortableContext>
+      </DndContext>
+    </div>
+  );
+}
+
+function SortableListItem(props) {
+  const { setNodeRef, transform, transition } = useSortable({
+    id: props.id,
+  });
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+  };
+
+  const { collapsed } = props;
+
+  return (
+    <ListItem
+      sortable
+      ref={setNodeRef}
+      style={style}
+      css={[styles.listControlItem, collapsed && styles.listControlItemCollapsed]}
+    >
+      {props.children}
+    </ListItem>
+  );
+}
+
+function DragHandle({ children, id }) {
+  const { attributes, listeners } = useSortable({
+    id,
+  });
+
+  return (
+    <div {...attributes} {...listeners}>
+      {children}
+    </div>
+  );
+}
 
 const valueTypes = {
   SINGLE: 'SINGLE',
@@ -103,7 +171,7 @@ function LabelComponent({ field, isActive, hasErrors, uniqueFieldId, isFieldOpti
 }
 
 export default class ListControl extends React.Component {
-  validations = [];
+  childRefs = {};
 
   static propTypes = {
     metadata: ImmutablePropTypes.map,
@@ -297,16 +365,18 @@ export default class ListControl extends React.Component {
   processControlRef = ref => {
     if (!ref) return;
     const {
-      validate,
       props: { validationKey: key },
     } = ref;
-    this.validations.push({ key, validate });
+    this.childRefs[key] = ref;
+    this.props.controlRef?.(this);
   };
 
   validate = () => {
-    if (this.getValueType()) {
-      this.validations.forEach(item => {
-        item.validate();
+    // First validate child widgets if this is a complex list
+    const hasChildWidgets = this.getValueType() && Object.keys(this.childRefs).length > 0;
+    if (hasChildWidgets) {
+      Object.values(this.childRefs).forEach(widget => {
+        widget?.validate?.();
       });
     } else {
       this.props.validate();
@@ -363,7 +433,17 @@ export default class ListControl extends React.Component {
   handleRemove = (index, event) => {
     event.preventDefault();
     const { itemsCollapsed } = this.state;
-    const { value, metadata, onChange, field, clearFieldErrors } = this.props;
+    const {
+      value,
+      metadata,
+      onChange,
+      field,
+      clearFieldErrors,
+      onValidateObject,
+      forID,
+      fieldsErrors,
+    } = this.props;
+
     const collectionName = field.get('name');
     const isSingleField = this.getValueType() === valueTypes.SINGLE;
 
@@ -373,17 +453,41 @@ export default class ListControl extends React.Component {
         ? { [collectionName]: metadata.removeIn(metadataRemovePath) }
         : metadata;
 
+    // Get the key of the item being removed
+    const removedKey = this.state.keys[index];
+
+    // Update state while preserving keys for remaining items
+    const newKeys = [...this.state.keys];
+    newKeys.splice(index, 1);
     itemsCollapsed.splice(index, 1);
-    // clear validations
-    this.validations = [];
 
     this.setState({
       itemsCollapsed: [...itemsCollapsed],
-      keys: Array.from({ length: value.size - 1 }, () => uuid()),
+      keys: newKeys,
     });
 
-    onChange(value.remove(index), parsedMetadata);
-    clearFieldErrors();
+    // Clear the ref for the removed item
+    delete this.childRefs[removedKey];
+
+    const newValue = value.delete(index);
+
+    // Clear errors for the removed item and its children
+    if (fieldsErrors) {
+      Object.entries(fieldsErrors.toJS()).forEach(([fieldId, errors]) => {
+        if (errors.some(err => err.parentIds?.includes(removedKey))) {
+          clearFieldErrors(fieldId);
+        }
+      });
+    }
+
+    // If list is empty, mark it as valid
+    if (newValue.size === 0) {
+      clearFieldErrors(forID);
+      onValidateObject(forID, []);
+    }
+
+    // Update the value last to ensure all error states are cleared
+    onChange(newValue, parsedMetadata);
   };
 
   handleItemCollapseToggle = (index, event) => {
@@ -459,7 +563,7 @@ export default class ListControl extends React.Component {
   }
 
   onSortEnd = ({ oldIndex, newIndex }) => {
-    const { value, clearFieldErrors } = this.props;
+    const { value } = this.props;
     const { itemsCollapsed, keys } = this.state;
 
     // Update value
@@ -473,18 +577,13 @@ export default class ListControl extends React.Component {
     const updatedItemsCollapsed = [...itemsCollapsed];
     updatedItemsCollapsed.splice(newIndex, 0, collapsed);
 
-    // Reset item to ensure updated state
-    const updatedKeys = keys.map((key, keyIndex) => {
-      if (keyIndex === oldIndex || keyIndex === newIndex) {
-        return uuid();
-      }
-      return key;
-    });
-    this.setState({ itemsCollapsed: updatedItemsCollapsed, keys: updatedKeys });
+    // Move keys to maintain relationships
+    const movedKey = keys[oldIndex];
+    const updatedKeys = [...keys];
+    updatedKeys.splice(oldIndex, 1);
+    updatedKeys.splice(newIndex, 0, movedKey);
 
-    //clear error fields and remove old validations
-    clearFieldErrors();
-    this.validations = this.validations.filter(item => updatedKeys.includes(item.key));
+    this.setState({ itemsCollapsed: updatedItemsCollapsed, keys: updatedKeys });
   };
 
   hasError = index => {
@@ -495,6 +594,34 @@ export default class ListControl extends React.Component {
       );
     }
   };
+
+  focus(path) {
+    const [index, ...remainingPath] = path.split('.');
+
+    if (this.state.listCollapsed || this.state.itemsCollapsed[index]) {
+      const newItemsCollapsed = [...this.state.itemsCollapsed];
+      newItemsCollapsed[index] = false;
+      this.setState(
+        {
+          listCollapsed: false,
+          itemsCollapsed: newItemsCollapsed,
+        },
+        () => {
+          const key = this.state.keys[index];
+          const control = this.childRefs[key];
+          if (control?.focus) {
+            control.focus(remainingPath.join('.'));
+          }
+        },
+      );
+    } else {
+      const key = this.state.keys[index];
+      const control = this.childRefs[key];
+      if (control?.focus) {
+        control.focus(remainingPath.join('.'));
+      }
+    }
+  }
 
   // eslint-disable-next-line react/display-name
   renderItem = (item, index) => {
@@ -524,11 +651,14 @@ export default class ListControl extends React.Component {
         return this.renderErroneousTypedItem(index, item);
       }
     }
+
     return (
       <SortableListItem
         css={[styles.listControlItem, collapsed && styles.listControlItemCollapsed]}
         index={index}
         key={key}
+        id={key}
+        keys={keys}
       >
         {isVariableTypesList && (
           <LabelComponent
@@ -543,8 +673,9 @@ export default class ListControl extends React.Component {
         <StyledListItemTopBar
           collapsed={collapsed}
           onCollapseToggle={partial(this.handleItemCollapseToggle, index)}
+          dragHandle={DragHandle}
+          id={key}
           onRemove={partial(this.handleRemove, index)}
-          dragHandleHOC={SortableHandle}
           data-testid={`styled-list-item-top-bar-${key}`}
         />
         <NestedObjectLabel collapsed={collapsed} error={hasError}>
@@ -595,7 +726,8 @@ export default class ListControl extends React.Component {
         <StyledListItemTopBar
           onCollapseToggle={null}
           onRemove={partial(this.handleRemove, index, key)}
-          dragHandleHOC={SortableHandle}
+          dragHandle={DragHandle}
+          id={key}
         />
         <NestedObjectLabel collapsed={true} error={true}>
           {errorMessage}
@@ -606,7 +738,7 @@ export default class ListControl extends React.Component {
 
   renderListControl() {
     const { value, forID, field, classNameWrapper, t } = this.props;
-    const { itemsCollapsed, listCollapsed } = this.state;
+    const { itemsCollapsed, listCollapsed, keys } = this.state;
     const items = value || List();
     const label = field.get('label', field.get('name'));
     const labelSingular = field.get('label_singular') || field.get('label', field.get('name'));
@@ -614,6 +746,8 @@ export default class ListControl extends React.Component {
     const minimizeCollapsedItems = field.get('minimize_collapsed', false);
     const allItemsCollapsed = itemsCollapsed.every(val => val === true);
     const selfCollapsed = allItemsCollapsed && (listCollapsed || !minimizeCollapsedItems);
+
+    const itemsArray = keys.map(key => ({ id: key }));
 
     return (
       <ClassNames>
@@ -639,13 +773,9 @@ export default class ListControl extends React.Component {
               t={t}
             />
             {(!selfCollapsed || !minimizeCollapsedItems) && (
-              <SortableList
-                items={items}
-                renderItem={this.renderItem}
-                onSortEnd={this.onSortEnd}
-                useDragHandle
-                lockAxis="y"
-              />
+              <SortableList items={itemsArray} keys={keys} onSortEnd={this.onSortEnd}>
+                {items.map(this.renderItem)}
+              </SortableList>
             )}
           </div>
         )}

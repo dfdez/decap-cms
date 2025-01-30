@@ -44,6 +44,7 @@ export default class Widget extends Component {
     fieldsErrors: ImmutablePropTypes.map,
     onChange: PropTypes.func.isRequired,
     onValidate: PropTypes.func,
+    controlRef: PropTypes.func,
     onOpenMediaLibrary: PropTypes.func.isRequired,
     onClearMediaControl: PropTypes.func.isRequired,
     onRemoveMediaControl: PropTypes.func.isRequired,
@@ -55,7 +56,6 @@ export default class Widget extends Component {
     widget: PropTypes.object.isRequired,
     getEditorComponents: PropTypes.func.isRequired,
     isFetching: PropTypes.bool,
-    controlRef: PropTypes.func,
     query: PropTypes.func.isRequired,
     clearSearch: PropTypes.func.isRequired,
     clearFieldErrors: PropTypes.func.isRequired,
@@ -72,9 +72,14 @@ export default class Widget extends Component {
     isFieldDuplicate: PropTypes.func,
     isFieldHidden: PropTypes.func,
     locale: PropTypes.string,
+    isParentListCollapsed: PropTypes.bool,
   };
 
   shouldComponentUpdate(nextProps) {
+    /**
+     * Avoid unnecessary rerenders while loading assets.
+     */
+    if (this.props.isLoadingAsset && nextProps.isLoadingAsset) return false;
     /**
      * Allow widgets to provide their own `shouldComponentUpdate` method.
      */
@@ -107,7 +112,28 @@ export default class Widget extends Component {
      */
     const { shouldComponentUpdate: scu } = this.innerWrappedControl;
     this.wrappedControlShouldComponentUpdate = scu && scu.bind(this.innerWrappedControl);
+
+    // Call the control ref if provided, passing this Widget instance
+    if (this.props.controlRef) {
+      this.props.controlRef(this);
+    }
   };
+
+  focus(path) {
+    // Try widget's custom focus method first
+    if (this.innerWrappedControl?.focus) {
+      this.innerWrappedControl.focus(path);
+    } else {
+      // Fall back to focusing by ID for simple widgets
+      const element = document.getElementById(this.props.uniqueFieldId);
+      element?.focus();
+    }
+    // After focusing, ensure the element is visible
+    const label = document.querySelector(`label[for="${this.props.uniqueFieldId}"]`);
+    if (label) {
+      label.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }
+  }
 
   getValidateValue = () => {
     let value = this.innerWrappedControl?.getValidateValue?.() || this.props.value;
@@ -294,6 +320,7 @@ export default class Widget extends Component {
       isFieldDuplicate,
       isFieldHidden,
       locale,
+      isParentListCollapsed,
     } = this.props;
 
     return React.createElement(controlComponent, {
@@ -346,6 +373,7 @@ export default class Widget extends Component {
       isFieldDuplicate,
       isFieldHidden,
       locale,
+      isParentListCollapsed,
     });
   }
 }

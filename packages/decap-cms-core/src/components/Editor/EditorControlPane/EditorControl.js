@@ -3,7 +3,7 @@ import { bindActionCreators } from 'redux';
 import PropTypes from 'prop-types';
 import ImmutablePropTypes from 'react-immutable-proptypes';
 import { translate } from 'react-polyglot';
-import { ClassNames, Global, css as coreCss } from '@emotion/core';
+import { ClassNames, Global, css as coreCss } from '@emotion/react';
 import styled from '@emotion/styled';
 import { partial, uniqueId } from 'lodash';
 import { connect } from 'react-redux';
@@ -62,7 +62,6 @@ const styleStrings = {
   disabled: `
     pointer-events: none;
     opacity: 0.5;
-    background: #ccc;
   `,
   hidden: `
     visibility: hidden;
@@ -77,21 +76,26 @@ const ControlContainer = styled.div`
   }
 `;
 
+const ControlTopbar = styled.div`
+  display: flex;
+  justify-content: space-between;
+  gap: 20px;
+  align-items: end;
+`;
 const ControlErrorsList = styled.ul`
   list-style-type: none;
   font-size: 12px;
   color: ${colors.errorText};
-  margin-bottom: 5px;
   text-align: right;
   text-transform: uppercase;
-  position: relative;
   font-weight: 600;
-  top: 20px;
+  margin: 0;
+  padding: 2px 0 3px;
 `;
 
 export const ControlHint = styled.p`
   margin-bottom: 0;
-  padding: 3px 0;
+  padding: 6px 0 0;
   font-size: 12px;
   color: ${props =>
     props.error ? colors.errorText : props.active ? colors.active : colors.controlLabel};
@@ -102,7 +106,14 @@ function LabelComponent({ field, isActive, hasErrors, uniqueFieldId, isFieldOpti
   const label = `${field.get('label', field.get('name'))}`;
   const labelComponent = (
     <FieldLabel isActive={isActive} hasErrors={hasErrors} htmlFor={uniqueFieldId}>
-      {label} {`${isFieldOptional ? ` (${t('editor.editorControl.field.optional')})` : ''}`}
+      {isFieldOptional ? (
+        <>
+          {label}
+          <span>{` (${t('editor.editorControl.field.optional')})`}</span>
+        </>
+      ) : (
+        label
+      )}
     </FieldLabel>
   );
 
@@ -128,7 +139,6 @@ class EditorControl extends React.Component {
     removeInsertedMedia: PropTypes.func.isRequired,
     persistMedia: PropTypes.func.isRequired,
     onValidate: PropTypes.func,
-    processControlRef: PropTypes.func,
     controlRef: PropTypes.func,
     query: PropTypes.func.isRequired,
     queryHits: PropTypes.object,
@@ -147,6 +157,7 @@ class EditorControl extends React.Component {
     isFieldDuplicate: PropTypes.func,
     isFieldHidden: PropTypes.func,
     locale: PropTypes.string,
+    isParentListCollapsed: PropTypes.bool,
   };
 
   static defaultProps = {
@@ -189,7 +200,6 @@ class EditorControl extends React.Component {
       removeInsertedMedia,
       persistMedia,
       onValidate,
-      processControlRef,
       controlRef,
       query,
       queryHits,
@@ -204,11 +214,13 @@ class EditorControl extends React.Component {
       parentIds,
       t,
       validateMetaField,
+      isLoadingAsset,
       isDisabled,
       isHidden,
       isFieldDuplicate,
       isFieldHidden,
       locale,
+      isParentListCollapsed,
     } = this.props;
 
     const widgetName = field.get('widget');
@@ -231,28 +243,30 @@ class EditorControl extends React.Component {
               ${isHidden && styleStrings.hidden};
             `}
           >
-            {widget.globalStyles && <Global styles={coreCss`${widget.globalStyles}`} />}
-            {errors && (
-              <ControlErrorsList>
-                {errors.map(
-                  error =>
-                    error.message &&
-                    typeof error.message === 'string' && (
-                      <li key={error.message.trim().replace(/[^a-z0-9]+/gi, '-')}>
-                        {error.message}
-                      </li>
-                    ),
-                )}
-              </ControlErrorsList>
-            )}
-            <LabelComponent
-              field={field}
-              isActive={isSelected || this.state.styleActive}
-              hasErrors={hasErrors}
-              uniqueFieldId={this.uniqueFieldId}
-              isFieldOptional={isFieldOptional}
-              t={t}
-            />
+            <ControlTopbar>
+              {widget.globalStyles && <Global styles={coreCss`${widget.globalStyles}`} />}
+              <LabelComponent
+                field={field}
+                isActive={isSelected || this.state.styleActive}
+                hasErrors={hasErrors}
+                uniqueFieldId={this.uniqueFieldId}
+                isFieldOptional={isFieldOptional}
+                t={t}
+              />
+              {errors && (
+                <ControlErrorsList>
+                  {errors.map(
+                    error =>
+                      error.message &&
+                      typeof error.message === 'string' && (
+                        <li key={error.message.trim().replace(/[^a-z0-9]+/gi, '-')}>
+                          {error.message}
+                        </li>
+                      ),
+                  )}
+                </ControlErrorsList>
+              )}
+            </ControlTopbar>
             <Widget
               classNameWrapper={cx(
                 css`
@@ -295,7 +309,10 @@ class EditorControl extends React.Component {
               value={value}
               mediaPaths={mediaPaths}
               metadata={metadata}
-              onChange={(newValue, newMetadata) => onChange(field, newValue, newMetadata)}
+              onChange={(newValue, newMetadata) => {
+                onChange(field, newValue, newMetadata);
+                clearFieldErrors(this.uniqueFieldId); // Видаляємо помилки лише для цього поля
+              }}
               onValidate={onValidate && partial(onValidate, this.uniqueFieldId)}
               onOpenMediaLibrary={openMediaLibrary}
               onClearMediaControl={clearMediaControl}
@@ -310,7 +327,6 @@ class EditorControl extends React.Component {
               resolveWidget={resolveWidget}
               widget={widget}
               getEditorComponents={getEditorComponents}
-              ref={processControlRef && partial(processControlRef, field)}
               controlRef={controlRef}
               editorControl={ConnectedEditorControl}
               query={query}
@@ -329,7 +345,9 @@ class EditorControl extends React.Component {
               isDisabled={isDisabled}
               isFieldDuplicate={isFieldDuplicate}
               isFieldHidden={isFieldHidden}
+              isLoadingAsset={isLoadingAsset}
               locale={locale}
+              isParentListCollapsed={isParentListCollapsed}
             />
             {fieldHint && (
               <ControlHint active={isSelected || this.state.styleActive} error={hasErrors}>

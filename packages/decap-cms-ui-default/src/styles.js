@@ -1,11 +1,12 @@
 import React from 'react';
-import { css, Global } from '@emotion/core';
+import { css, Global } from '@emotion/react';
 
 /**
  * Font Stacks
  */
 const fonts = {
   primary: `
+    system-ui,
     -apple-system,
     BlinkMacSystemFont,
     "Segoe UI",

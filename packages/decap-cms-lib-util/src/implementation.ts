@@ -111,6 +111,7 @@ export type Config = {
     proxy_url?: string;
     auth_type?: string;
     app_id?: string;
+    base_url?: string;
     cms_label_prefix?: string;
     api_version?: string;
   };
@@ -177,6 +178,7 @@ export interface Implementation {
     folder: string,
     extension: string,
     depth: number,
+    pathRegex?: RegExp,
   ) => Promise<ImplementationEntry[]>;
   traverseCursor?: (
     cursor: Cursor,

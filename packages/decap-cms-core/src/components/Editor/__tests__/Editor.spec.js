@@ -65,7 +65,10 @@ describe('Editor', () => {
     expect(asFragment()).toMatchSnapshot();
     expect(console.error).toHaveBeenCalledTimes(1);
     expect(console.error).toHaveBeenCalledWith(
-      'Warning: Failed prop type: Required prop `entryDraft` was not specified in `Editor`.\n    in Editor',
+      'Warning: Failed %s type: %s%s',
+      'prop',
+      'Required prop `entryDraft` was not specified in `Editor`.',
+      expect.anything(),
     );
   });
 
@@ -135,7 +138,7 @@ describe('Editor', () => {
     expect(props.loadEntry).toHaveBeenCalledWith(props.collection, 'slug');
   });
 
-  it('should load entires when entries are not loaded when mounting', () => {
+  it('should load entries when entries are not loaded when mounting', () => {
     render(
       <Editor
         {...props}
@@ -149,7 +152,7 @@ describe('Editor', () => {
     expect(props.loadEntries).toHaveBeenCalledWith(props.collection);
   });
 
-  it('should not load entires when entries are loaded when mounting', () => {
+  it('should not load entries when entries are loaded when mounting', () => {
     render(
       <Editor
         {...props}

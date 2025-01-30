@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import PropTypes from 'prop-types';
 import ImmutablePropTypes from 'react-immutable-proptypes';
-import { ClassNames } from '@emotion/core';
+import { ClassNames } from '@emotion/react';
 import styled from '@emotion/styled';
 import { lengths, fonts } from 'decap-cms-ui-default';
 import { createEditor } from 'slate';
@@ -43,8 +43,9 @@ function RawEditor(props) {
   useEffect(() => {
     if (props.pendingFocus) {
       ReactEditor.focus(editor);
+      props.pendingFocus();
     }
-  }, []);
+  }, [props.pendingFocus]);
 
   function handleToggleMode() {
     props.onMode('rich_text');

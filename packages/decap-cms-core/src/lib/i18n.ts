@@ -24,7 +24,7 @@ export function hasI18n(collection: Collection) {
   return collection.has(I18N);
 }
 
-type I18nInfo = {
+export type I18nInfo = {
   locales: string[];
   defaultLocale: string;
   structure: I18N_STRUCTURE;
@@ -250,7 +250,11 @@ function mergeValues(
   return entryValue;
 }
 
-function mergeSingleFileValue(entryValue: EntryValue, defaultLocale: string, locales: string[]) {
+function mergeSingleFileValue(
+  entryValue: EntryValue,
+  defaultLocale: string,
+  locales: string[],
+): EntryValue {
   const data = entryValue.data[defaultLocale] || {};
   const i18n = locales
     .filter(l => l !== defaultLocale)
